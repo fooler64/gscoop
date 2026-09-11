@@ -1,0 +1,64 @@
+#pragma once
+
+#include <QWidget>
+#include <QSet>
+#include "models/scoop_models.h"
+#include "core/scoop_service.h"
+
+class QListWidget;
+class QLabel;
+class QPushButton;
+class QLineEdit;
+class QComboBox;
+class QGridLayout;
+class QVBoxLayout;
+class ScoopService;
+
+// 预置常用 bucket
+struct PresetBucket {
+    QString name;
+    QString url;       // GitHub 原始地址
+    QString desc;
+};
+
+// Bucket 页：预置常用 buckets 网格 + 一键添加 + 国内镜像切换
+class BucketPage : public QWidget {
+    Q_OBJECT
+public:
+    explicit BucketPage(ScoopService* service, QWidget* parent = nullptr);
+    void onPageShown();
+
+    // 常用 bucket 预设
+    static const QVector<PresetBucket>& presets();
+
+private slots:
+    void onBucketsLoaded(QVector<BucketInfo> buckets);
+    void onAddPreset(const QString& name, const QString& url);
+    void onRemoveBucket();
+    void onRefreshClicked();
+    void onOpFinished(ScoopOpType type, const QString& package, bool success, const QString& error);
+    void onMirrorChanged(int idx);
+
+private:
+    void setupUi();
+    void populateInstalledList(const QVector<BucketInfo>& buckets);
+    void rebuildPresetGrid();
+    QString mirrorUrl(const QString& githubUrl) const;
+
+    ScoopService* m_service;
+    // 已安装 buckets
+    QListWidget* m_list = nullptr;
+    QLabel* m_countLabel = nullptr;
+    QPushButton* m_removeBtn = nullptr;
+    QPushButton* m_refreshBtn = nullptr;
+    // 预置网格
+    QWidget* m_presetGrid = nullptr;
+    QGridLayout* m_presetLayout = nullptr;
+    // 镜像选择
+    QComboBox* m_mirrorCombo = nullptr;
+
+    QVector<BucketInfo> m_buckets;
+    QSet<QString> m_installedNames;
+    QString m_mirror;   // 当前镜像前缀
+    bool m_loaded = false;
+};

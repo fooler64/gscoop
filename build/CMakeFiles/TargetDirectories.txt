@@ -1,0 +1,5 @@
+C:/Users/li/Documents/AI/rscoop-cpp/build/CMakeFiles/gscoop.dir
+C:/Users/li/Documents/AI/rscoop-cpp/build/CMakeFiles/edit_cache.dir
+C:/Users/li/Documents/AI/rscoop-cpp/build/CMakeFiles/rebuild_cache.dir
+C:/Users/li/Documents/AI/rscoop-cpp/build/CMakeFiles/gscoop_autogen_timestamp_deps.dir
+C:/Users/li/Documents/AI/rscoop-cpp/build/CMakeFiles/gscoop_autogen.dir
