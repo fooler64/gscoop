@@ -1,0 +1,17 @@
+# Build
+build/
+*.exe
+*.dll
+*.log
+
+# Qt
+CMakeLists.txt.user
+*.user
+
+# IDE
+.vscode/
+.idea/
+
+# Test artifacts
+test_*.cpp
+test_*.exe
