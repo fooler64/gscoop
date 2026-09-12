@@ -52,7 +52,7 @@ private:
     bool loadThemeFromJson(const QByteArray& data, const QString& id);
 
     QString m_id = "ganyu";
-    QString m_name = "甘雨·冰蓝";
-    bool m_dark = true;
+    QString m_name = "甘雨·蓝白冰系";
+    bool m_dark = false;
     QMap<QString, QColor> m_colors;
 };

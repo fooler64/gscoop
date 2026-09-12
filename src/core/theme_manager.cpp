@@ -9,29 +9,29 @@
 #include <QJsonArray>
 #include <QStandardPaths>
 
-// 内置默认主题（ganyu 甘雨冰蓝）—— 当 JSON 缺失时的兜底
+// 内置默认主题（ganyu 甘雨蓝白冰系）—— 当 JSON 缺失时的兜底
 static const QMap<QString, QColor>& defaultGanyu() {
     static QMap<QString, QColor> c = {
-        {"bg", QColor("#0e1626")},
-        {"surface", QColor("#16203a")},
-        {"surface2", QColor("#1d2a4a")},
-        {"surface3", QColor("#24355c")},
-        {"border", QColor("#2c3e66")},
-        {"text", QColor("#e8f0f8")},
-        {"textSub", QColor("#8fa3c0")},
-        {"accent", QColor("#8fb7d9")},
-        {"accentDim", QColor("#2f4a78")},
-        {"active", QColor("#1c2e52")},
-        {"highlight", QColor("#23375f")},
-        {"gold", QColor("#d4af37")},
-        {"danger", QColor("#e06c75")},
-        {"warn", QColor("#d19a66")},
-        {"success", QColor("#8fd9a8")},
-        {"activityBarBg", QColor("#0a101d")},
-        {"activityBarIcon", QColor("#7d93b5")},
-        {"activityBarActive", QColor("#8fb7d9")},
-        {"titleBarBg", QColor("#0c1424")},
-        {"sideBarBg", QColor("#101a30")},
+        {"bg", QColor("#e8f4fa")},
+        {"surface", QColor("#ffffff")},
+        {"surface2", QColor("#f2f9fd")},
+        {"surface3", QColor("#dceef7")},
+        {"border", QColor("#c4dfec")},
+        {"text", QColor("#1c3a4d")},
+        {"textSub", QColor("#5f8299")},
+        {"accent", QColor("#3d8bb5")},
+        {"accentDim", QColor("#bcdcea")},
+        {"active", QColor("#e3f2f9")},
+        {"highlight", QColor("#d9ecf6")},
+        {"gold", QColor("#c9a227")},
+        {"danger", QColor("#c94f4f")},
+        {"warn", QColor("#c1843a")},
+        {"success", QColor("#3d9a7a")},
+        {"activityBarBg", QColor("#dceef7")},
+        {"activityBarIcon", QColor("#5f8299")},
+        {"activityBarActive", QColor("#3d8bb5")},
+        {"titleBarBg", QColor("#e8f4fa")},
+        {"sideBarBg", QColor("#e3f1f8")},
     };
     return c;
 }
@@ -48,8 +48,8 @@ ThemeManager::ThemeManager(QObject* parent)
 
 void ThemeManager::loadDefaults() {
     m_id = "ganyu";
-    m_name = "甘雨·冰蓝";
-    m_dark = true;
+    m_name = "甘雨·蓝白冰系";
+    m_dark = false;
     m_colors = defaultGanyu();
 }
 
