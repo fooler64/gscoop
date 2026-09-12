@@ -162,7 +162,7 @@ void SearchPage::populateTable(QTableWidget* table, const QVector<ScoopPackage>&
         table->setItem(i, 3, new QTableWidgetItem(pkg.info.left(100)));
         auto* statusItem = new QTableWidgetItem(pkg.is_installed ? tr("已安装") : tr("未安装"));
         if (pkg.is_installed) {
-            statusItem->setForeground(QColor("#22c55e"));
+            statusItem->setForeground(Theme::installed(false));
             statusItem->setFont([&]() {
                 QFont f = statusItem->font();
                 f.setBold(true);
@@ -187,7 +187,7 @@ void SearchPage::refreshInstalledState() {
             if (status) {
                 status->setText(inst ? tr("已安装") : tr("未安装"));
                 if (inst) {
-                    status->setForeground(QColor("#22c55e"));
+                    status->setForeground(Theme::installed(false));
                 }
             }
         }

@@ -15,6 +15,9 @@ int main(int argc, char* argv[]) {
     app.setApplicationVersion("0.1.0");
     app.setQuitOnLastWindowClosed(true);
 
+    // 强制 Fusion 风格：保证 QPalette 完全生效（甘雨深色主题）
+    app.setStyle(QStyleFactory::create("Fusion"));
+
     // 全局字体（中文友好）
     QFont font("Microsoft YaHei", 9);
     app.setFont(font);

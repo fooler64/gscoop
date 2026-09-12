@@ -15,7 +15,12 @@ SettingsStore::SettingsStore(QObject* parent)
 }
 
 void SettingsStore::load() {
-    m_settings.theme = m_qsettings.value("ui/theme", "system").toString();
+    m_settings.theme = m_qsettings.value("ui/theme", "ganyu").toString();
+    // 旧版本存了 system/dark 的迁移到 ganyu
+    if (m_settings.theme == "system" || m_settings.theme == "dark") {
+        m_settings.theme = "ganyu";
+        m_qsettings.setValue("ui/theme", "ganyu");
+    }
     m_settings.language = m_qsettings.value("ui/language", "zh-CN").toString();
     m_settings.defaultLaunchPage = m_qsettings.value("ui/launchPage", "search").toString();
     m_settings.autoUpdateCheck = m_qsettings.value("ui/autoUpdateCheck", true).toBool();

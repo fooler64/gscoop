@@ -74,7 +74,7 @@ void ActivityBar::paintEvent(QPaintEvent* event) {
                                        Theme::activityBarActive(m_dark), 0.18));
         } else if (btn->underMouse()) {
             p.fillRect(r, Theme::blend(Theme::activityBarBg(m_dark),
-                                       QColor(255, 255, 255), m_dark ? 0.08 : 0.12));
+                                       Theme::highlight(m_dark), 0.35));
         }
 
         // 图标颜色（通过按钮前景色实现）

@@ -1,0 +1,27 @@
+{
+    "name": "雪白·内衬",
+    "id": "light",
+    "dark": false,
+    "colors": {
+        "bg":           "#eef3f8",
+        "surface":      "#ffffff",
+        "surface2":     "#e6eef5",
+        "surface3":     "#d8e6f0",
+        "border":       "#c8d8e8",
+        "text":         "#1c2a3a",
+        "textSub":      "#5a7088",
+        "accent":       "#3a6ea5",
+        "accentDim":    "#c9ddf0",
+        "active":       "#d4e4f2",
+        "highlight":    "#e2edf6",
+        "gold":         "#b8952e",
+        "danger":       "#c9434c",
+        "warn":         "#b07f30",
+        "success":      "#2f8f5b",
+        "activityBarBg":    "#dde6ef",
+        "activityBarIcon":  "#5a7088",
+        "activityBarActive":"#3a6ea5",
+        "titleBarBg":       "#e3ebf3",
+        "sideBarBg":        "#e9f0f6"
+    }
+}

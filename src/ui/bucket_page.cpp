@@ -14,6 +14,7 @@
 #include <QFrame>
 
 #include "core/scoop_service.h"
+#include "core/theme_manager.h"
 #include "ui/theme.h"
 
 // 预置常用 buckets（GitHub 官方地址）
@@ -160,19 +161,20 @@ void BucketPage::rebuildPresetGrid() {
         card->setMinimumHeight(52);
         card->setToolTip(p.url);
         // 两行文字：名称 + 描述
+        const bool dark = ThemeManager::instance().isDark();
         QString text = QString("<b>%1</b><br><span style='color:%2;font-size:11px'>%3</span>")
                            .arg(p.name.toHtmlEscaped(),
-                                installed ? "#7cc4dd" : "#8fa7b5",
+                                (installed ? Theme::accent(dark).name() : Theme::textSub(dark).name()),
                                 (installed ? tr("✓ 已添加") : p.desc).toHtmlEscaped());
         card->setText(text);
         if (installed) {
             card->setEnabled(false);   // 已添加的置灰
         }
 
-        // 甘雨配色（代码驱动）
+        // 甘雨配色（主题驱动，代码调色板）
         QPalette cp = card->palette();
-        cp.setColor(QPalette::Button, installed ? QColor("#22384a") : QColor("#16222d"));
-        cp.setColor(QPalette::ButtonText, QColor("#e8f4f8"));
+        cp.setColor(QPalette::Button, installed ? Theme::surface3(dark) : Theme::surface2(dark));
+        cp.setColor(QPalette::ButtonText, Theme::text(dark));
         card->setPalette(cp);
         card->setAutoFillBackground(true);
 

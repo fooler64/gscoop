@@ -12,6 +12,7 @@
 
 #include "core/scoop_service.h"
 #include "core/settings_store.h"
+#include "core/theme_manager.h"
 
 SettingsPage::SettingsPage(ScoopService* service, QWidget* parent)
     : QWidget(parent), m_service(service) {
@@ -45,9 +46,11 @@ void SettingsPage::setupUi() {
     auto* generalForm = new QFormLayout(generalBox);
 
     m_themeCombo = new QComboBox(generalBox);
-    m_themeCombo->addItem(tr("跟随系统"), "system");
-    m_themeCombo->addItem(tr("浅色"), "light");
-    m_themeCombo->addItem(tr("深色"), "dark");
+    // 动态扫描 themes/*.json（甘雨/浅色/未来新增）
+    const auto themes = ThemeManager::instance().availableThemes();
+    for (const auto& t : themes) {
+        m_themeCombo->addItem(t.name, t.id);
+    }
     generalForm->addRow(tr("主题:"), m_themeCombo);
 
     m_languageCombo = new QComboBox(generalBox);

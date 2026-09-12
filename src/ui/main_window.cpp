@@ -14,6 +14,7 @@
 
 #include "core/scoop_service.h"
 #include "core/settings_store.h"
+#include "core/theme_manager.h"
 #include "ui/animated_stack.h"
 #include "ui/activity_bar.h"
 #include "ui/theme.h"
@@ -21,6 +22,28 @@
 #include "ui/installed_page.h"
 #include "ui/bucket_page.h"
 #include "ui/settings_page.h"
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <dwmapi.h>
+// MinGW 旧头文件可能缺少这些常量
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1
+#define DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 19
+#endif
+#endif
+
+// 设置 Windows 原生标题栏为深色（VSCode 风格）
+static void setDarkTitleBar(QWidget* w, bool dark) {
+#ifdef Q_OS_WIN
+    HWND hwnd = reinterpret_cast<HWND>(w->winId());
+    const BOOL value = dark ? TRUE : FALSE;
+    DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
+    DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1, &value, sizeof(value));
+#endif
+}
 
 MainWindow::MainWindow(ScoopService* service, QWidget* parent)
     : QMainWindow(parent), m_service(service) {
@@ -166,27 +189,26 @@ void MainWindow::onSettingsChanged() {
     applyTheme(s.theme);
 }
 
-void MainWindow::applyTheme(const QString& theme) {
-    bool dark = true;
-    if (theme == "light") dark = false;
-    else if (theme == "system") {
-        const QColor bg = palette().window().color();
-        dark = (bg.lightness() < 128);
-    }
+void MainWindow::applyTheme(const QString& themeId) {
+    // 主题 id（ganyu / light / 其他 JSON 文件）→ ThemeManager
+    ThemeManager::instance().loadTheme(themeId);
+    const bool dark = ThemeManager::instance().isDark();
     m_dark = dark;
 
-    // 纯代码调色板（无 QSS）
-    Theme::applyToApplication(dark);
+    // 代码调色板（JSON 驱动，无 QSS）
+    ThemeManager::instance().apply();
     if (m_activityBar) m_activityBar->setDark(dark);
 
-    // 标题栏背景（代码绘制）
+    // 标题栏背景
     if (m_titleBar) {
         QPalette p = m_titleBar->palette();
-        p.setColor(QPalette::Window,
-                   dark ? QColor("#10161d") : QColor("#e8eef2"));
+        p.setColor(QPalette::Window, Theme::titleBarBg(dark));
         m_titleBar->setPalette(p);
         m_titleBar->setAutoFillBackground(true);
     }
+
+    // Windows 原生标题栏跟随主题
+    setDarkTitleBar(this, dark);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {

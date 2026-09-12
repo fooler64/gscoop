@@ -1,0 +1,27 @@
+{
+    "name": "甘雨·冰蓝",
+    "id": "ganyu",
+    "dark": true,
+    "colors": {
+        "bg":           "#0e1626",
+        "surface":      "#16203a",
+        "surface2":     "#1d2a4a",
+        "surface3":     "#24355c",
+        "border":       "#2c3e66",
+        "text":         "#e8f0f8",
+        "textSub":      "#8fa3c0",
+        "accent":       "#8fb7d9",
+        "accentDim":    "#2f4a78",
+        "active":       "#1c2e52",
+        "highlight":    "#23375f",
+        "gold":         "#d4af37",
+        "danger":       "#e06c75",
+        "warn":         "#d19a66",
+        "success":      "#8fd9a8",
+        "activityBarBg":    "#0a101d",
+        "activityBarIcon":  "#7d93b5",
+        "activityBarActive":"#8fb7d9",
+        "titleBarBg":       "#0c1424",
+        "sideBarBg":        "#101a30"
+    }
+}

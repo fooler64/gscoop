@@ -12,6 +12,7 @@
 #include <QColor>
 
 #include "core/scoop_service.h"
+#include "ui/theme.h"
 
 InstalledPage::InstalledPage(ScoopService* service, QWidget* parent)
     : QWidget(parent), m_service(service) {
@@ -130,9 +131,9 @@ void InstalledPage::populateTable(const QVector<InstalledPackage>& packages) {
         if (ip.is_failed) status << tr("异常");
         if (ip.is_deprecated) status << tr("已废弃");
         auto* statusItem = new QTableWidgetItem(status.join(" "));
-        if (ip.is_outdated) statusItem->setForeground(QColor("#f59e0b"));
-        else if (ip.is_failed) statusItem->setForeground(QColor("#ef4444"));
-        else if (ip.is_held) statusItem->setForeground(QColor("#4f6ef7"));
+        if (ip.is_outdated) statusItem->setForeground(Theme::outdated(false));
+        else if (ip.is_failed) statusItem->setForeground(Theme::failed(false));
+        else if (ip.is_held) statusItem->setForeground(Theme::held(false));
         m_table->setItem(i, 4, statusItem);
     }
     m_table->clearSelection();

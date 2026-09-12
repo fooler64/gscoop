@@ -15,6 +15,7 @@ set(SOURCES
     src/models/scoop_models.cpp
     src/core/scoop_service.cpp
     src/core/settings_store.cpp
+    src/core/theme_manager.cpp
     src/ui/main_window.cpp
     src/ui/animated_stack.cpp
     src/ui/activity_bar.cpp
@@ -30,6 +31,7 @@ set(HEADERS
     src/models/scoop_models.h
     src/core/scoop_service.h
     src/core/settings_store.h
+    src/core/theme_manager.h
     src/ui/main_window.h
     src/ui/animated_stack.h
     src/ui/activity_bar.h
@@ -61,10 +63,19 @@ set_target_properties(gscoop PROPERTIES
     MACOSX_BUNDLE TRUE
 )
 
+# 部署 themes/ 到可执行目录
+add_custom_command(TARGET gscoop POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/themes
+        $<TARGET_FILE_DIR:gscoop>/themes
+)
+
 # Windows 图标资源（如果存在）
 if(WIN32)
     target_compile_definitions(gscoop PRIVATE
         _WIN32_WINNT=0x0601
         NOMINMAX
     )
+    # dwmapi：Windows 标题栏深色
+    target_link_libraries(gscoop PRIVATE dwmapi)
 endif()
