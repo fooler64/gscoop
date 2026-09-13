@@ -93,11 +93,14 @@ void InstalledCard::paintEvent(QPaintEvent* event) {
     subFont.setPointSizeF(subFont.pointSizeF() - 1.0);
     p.setFont(subFont);
     p.setPen(Theme::textSub(dark));
-    QString sub = m_pkg.pkg.source.isEmpty() ? m_pkg.pkg.version
-                                             : QString("%1 · %2").arg(m_pkg.pkg.version, m_pkg.pkg.source);
-    const QRect subRect(12, 56, int(w) - 90, 16);
-    p.drawText(subRect, Qt::AlignLeft | Qt::AlignVCenter,
-               QFontMetrics(subFont).elidedText(sub, Qt::ElideRight, subRect.width()));
+    // 版本号完整绘制（不截断）。用单点 drawText(pos, text) 重载，
+    // 规避 QRect 重载在 Qt6 下对"数字.数字"串的字符整形 bug（点号被渲染成空格）
+    p.drawText(QPointF(12, 66), m_pkg.pkg.version);
+    if (!m_pkg.pkg.source.isEmpty()) {
+        const QRect srcRect(12 + 128, 56, int(w) - 12 - 128 - 12, 16);
+        p.drawText(srcRect, Qt::AlignLeft | Qt::AlignVCenter,
+                   QFontMetrics(subFont).elidedText(m_pkg.pkg.source, Qt::ElideRight, srcRect.width()));
+    }
 
     // ---- 右上角：可更新徽标 ----
     if (m_pkg.is_outdated) {

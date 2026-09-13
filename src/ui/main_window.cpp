@@ -218,17 +218,19 @@ void MainWindow::navigateTo(int pageIndex, bool animate) {
     int stackIdx = pageIndex;
     if (pageIndex == 1) stackIdx = 2;   // installed
     else if (pageIndex == 2) stackIdx = 1;  // bucket
-    m_stack->setCurrentIndex(stackIdx, animate);
 
-    if (m_activityBar) m_activityBar->setActive(pageIndex);
-    m_currentPage = pageIndex;
-
+    // 先触发页面内容加载（onPageShown），再动画切换，避免动画期间空白页
     switch (pageIndex) {
     case 0: m_searchPage->onPageShown(); break;
     case 1: m_installedPage->onPageShown(); break;
     case 2: m_bucketPage->onPageShown(); break;
     case 3: m_settingsPage->onPageShown(); break;
     }
+
+    m_stack->setCurrentIndex(stackIdx, animate);
+
+    if (m_activityBar) m_activityBar->setActive(pageIndex);
+    m_currentPage = pageIndex;
 }
 
 void MainWindow::onScoopDetected(bool installed) {
