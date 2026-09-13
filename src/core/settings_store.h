@@ -17,6 +17,7 @@ struct AppSettings {
     bool showUpdateBanner = true;
     QString proxyUrl;                // 可选代理
     bool useProxy = false;
+    QString virusTotalApiKey;        // VirusTotal API key（可选）
     // 窗口
     bool rememberWindowSize = true;
     bool startMinimized = false;
@@ -37,6 +38,7 @@ public:
     void setCloseToTray(bool on);
     void setShowUpdateBanner(bool on);
     void setProxy(const QString& url, bool use);
+    void setVirusTotalApiKey(const QString& key);
     void setRememberWindowSize(bool on);
     void setStartMinimized(bool on);
 

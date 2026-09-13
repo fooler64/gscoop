@@ -15,10 +15,6 @@
 #include <QScreen>
 #include <QGuiApplication>
 #include <QShowEvent>
-#include <QTimer>
-#include <QScreen>
-#include <QPixmap>
-#include <QFile>
 
 #include "core/scoop_service.h"
 #include "core/settings_store.h"
@@ -31,6 +27,10 @@
 #include "ui/bucket_page.h"
 #include "ui/settings_page.h"
 #include "ui/doctor_page.h"
+#include "ui/explore_bucket_dialog.h"
+#include "ui/add_bucket_dialog.h"
+#include "ui/add_buckets_dialog.h"
+#include "ui/package_info_dialog.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -84,8 +84,7 @@ void MainWindow::setupUi() {
     m_navButtons.append(activityBar->addItem(QString::fromUtf8("🔍"), tr("搜索")));   // 0
     m_navButtons.append(activityBar->addItem(QString::fromUtf8("📦"), tr("已安装"))); // 1
     m_navButtons.append(activityBar->addItem(QString::fromUtf8("🗂️"), tr("Bucket"))); // 2
-    m_navButtons.append(activityBar->addItem(QString::fromUtf8("🧰"), tr("Doctor"))); // 3
-    m_navButtons.append(activityBar->addItem(QString::fromUtf8("⚙️"), tr("设置")));   // 4
+    m_navButtons.append(activityBar->addItem(QString::fromUtf8("⚙️"), tr("设置")));   // 3
     rootLayout->addWidget(activityBar);
 
     connect(activityBar, &ActivityBar::itemClicked, this,
@@ -123,14 +122,12 @@ void MainWindow::setupUi() {
     m_searchPage = new SearchPage(m_service, this);
     m_bucketPage = new BucketPage(m_service, this);
     m_installedPage = new InstalledPage(m_service, this);
-    m_doctorPage = new DoctorPage(m_service, this);
     m_settingsPage = new SettingsPage(m_service, this);
 
     m_stack->addWidget(m_searchPage);      // 0
     m_stack->addWidget(m_bucketPage);      // 1
     m_stack->addWidget(m_installedPage);   // 2
-    m_stack->addWidget(m_doctorPage);      // 3
-    m_stack->addWidget(m_settingsPage);    // 4
+    m_stack->addWidget(m_settingsPage);    // 3
 
     rightLayout->addWidget(m_stack, 1);
     rootLayout->addWidget(rightSide, 1);
@@ -144,8 +141,7 @@ void MainWindow::setupUi() {
     int idx = 0;
     if (launch == "installed") idx = 1;
     else if (launch == "buckets") idx = 2;
-    else if (launch == "doctor") idx = 3;
-    else if (launch == "settings") idx = 4;
+    else if (launch == "settings") idx = 3;
     navigateTo(idx, false);
 }
 
@@ -171,8 +167,8 @@ void MainWindow::setupTray() {
 
 void MainWindow::navigateTo(int pageIndex, bool animate) {
     if (!m_stack) return;
-    // 活动栏按钮索引：0=search 1=installed 2=bucket 3=doctor 4=settings
-    // 页面堆栈索引：0=search 1=bucket 2=installed 3=doctor 4=settings
+    // 活动栏按钮索引：0=search 1=installed 2=bucket 3=settings
+    // 页面堆栈索引：0=search 1=bucket 2=installed 3=settings
     int stackIdx = pageIndex;
     if (pageIndex == 1) stackIdx = 2;   // installed
     else if (pageIndex == 2) stackIdx = 1;  // bucket
@@ -185,8 +181,7 @@ void MainWindow::navigateTo(int pageIndex, bool animate) {
     case 0: m_searchPage->onPageShown(); break;
     case 1: m_installedPage->onPageShown(); break;
     case 2: m_bucketPage->onPageShown(); break;
-    case 3: m_doctorPage->onPageShown(); break;
-    case 4: m_settingsPage->onPageShown(); break;
+    case 3: m_settingsPage->onPageShown(); break;
     }
 }
 
@@ -218,7 +213,6 @@ void MainWindow::applyTheme(const QString& themeId) {
     for (QWidget* w : {qobject_cast<QWidget*>(m_searchPage),
                        qobject_cast<QWidget*>(m_bucketPage),
                        qobject_cast<QWidget*>(m_installedPage),
-                       qobject_cast<QWidget*>(m_doctorPage),
                        qobject_cast<QWidget*>(m_settingsPage)}) {
         if (!w) continue;
         QPalette wp = w->palette();

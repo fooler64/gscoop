@@ -29,6 +29,7 @@ void SettingsStore::load() {
     m_settings.showUpdateBanner = m_qsettings.value("ui/showUpdateBanner", true).toBool();
     m_settings.proxyUrl = m_qsettings.value("net/proxyUrl", "").toString();
     m_settings.useProxy = m_qsettings.value("net/useProxy", false).toBool();
+    m_settings.virusTotalApiKey = m_qsettings.value("security/vtApiKey", "").toString();
     m_settings.rememberWindowSize = m_qsettings.value("window/rememberSize", true).toBool();
     m_settings.startMinimized = m_qsettings.value("window/startMinimized", false).toBool();
 }
@@ -43,6 +44,7 @@ void SettingsStore::save() {
     m_qsettings.setValue("ui/showUpdateBanner", m_settings.showUpdateBanner);
     m_qsettings.setValue("net/proxyUrl", m_settings.proxyUrl);
     m_qsettings.setValue("net/useProxy", m_settings.useProxy);
+    m_qsettings.setValue("security/vtApiKey", m_settings.virusTotalApiKey);
     m_qsettings.setValue("window/rememberSize", m_settings.rememberWindowSize);
     m_qsettings.setValue("window/startMinimized", m_settings.startMinimized);
     m_qsettings.sync();
@@ -96,6 +98,12 @@ void SettingsStore::setShowUpdateBanner(bool on) {
 void SettingsStore::setProxy(const QString& url, bool use) {
     m_settings.proxyUrl = url;
     m_settings.useProxy = use;
+    save();
+    emit settingsChanged(m_settings);
+}
+
+void SettingsStore::setVirusTotalApiKey(const QString& key) {
+    m_settings.virusTotalApiKey = key;
     save();
     emit settingsChanged(m_settings);
 }

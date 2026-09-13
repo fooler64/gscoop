@@ -13,7 +13,6 @@ class SearchPage;
 class InstalledPage;
 class BucketPage;
 class SettingsPage;
-class DoctorPage;
 class AnimatedStackedWidget;
 class ActivityBar;
 
@@ -24,7 +23,7 @@ public:
     explicit MainWindow(ScoopService* service, QWidget* parent = nullptr);
 
 public slots:
-    void navigateTo(int pageIndex, bool animate = true);   // 0=search 1=installed 2=bucket 3=doctor 4=settings
+    void navigateTo(int pageIndex, bool animate = true);   // 0=search 1=installed 2=bucket 3=settings
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -54,5 +53,4 @@ private:
     InstalledPage* m_installedPage = nullptr;
     BucketPage* m_bucketPage = nullptr;
     SettingsPage* m_settingsPage = nullptr;
-    DoctorPage* m_doctorPage = nullptr;
 };
