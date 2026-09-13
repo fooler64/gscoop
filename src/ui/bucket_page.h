@@ -66,6 +66,8 @@ private slots:
     void onRefreshClicked();
     void onOpFinished(ScoopOpType type, const QString& package, bool success, const QString& error);
     void onMirrorChanged(int idx);
+    void onAddBucketClicked();
+    void onExploreClicked();
 
 private:
     void setupUi();
@@ -79,6 +81,8 @@ private:
     QLabel* m_countLabel = nullptr;
     QPushButton* m_removeBtn = nullptr;
     QPushButton* m_refreshBtn = nullptr;
+    QPushButton* m_addBtn = nullptr;
+    QPushButton* m_exploreBtn = nullptr;
     // 预置网格
     QWidget* m_presetGrid = nullptr;
     QGridLayout* m_presetLayout = nullptr;

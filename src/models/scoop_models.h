@@ -7,6 +7,7 @@
 #include <QJsonArray>
 #include <QMetaType>
 #include <QVector>
+#include <QPair>
 
 // 匹配来源（原版 MatchSource）
 enum class MatchSource {
@@ -86,6 +87,17 @@ struct InstalledPackage {
     QString update_version;   // 最新版本（若可获取）
     QString description;
 };
+
+// Doctor 检查项（对应 rscoop CheckupItem）
+struct DoctorCheckItem {
+    QString title;       // 检查项标题
+    QString description; // 详细描述/建议
+    bool passed = false; // true=通过, false=失败/警告
+    bool warning = false;// true=警告（不阻断）, false=错误
+    QString detail;      // 额外信息（如版本号）
+};
+
+Q_DECLARE_METATYPE(DoctorCheckItem)
 
 Q_DECLARE_METATYPE(ScoopPackage)
 Q_DECLARE_METATYPE(InstalledPackage)

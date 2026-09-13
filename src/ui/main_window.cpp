@@ -10,7 +10,15 @@
 #include <QCloseEvent>
 #include <QMessageBox>
 #include <QApplication>
+#include <QCoreApplication>
 #include <QFrame>
+#include <QScreen>
+#include <QGuiApplication>
+#include <QShowEvent>
+#include <QTimer>
+#include <QScreen>
+#include <QPixmap>
+#include <QFile>
 
 #include "core/scoop_service.h"
 #include "core/settings_store.h"
@@ -22,6 +30,7 @@
 #include "ui/installed_page.h"
 #include "ui/bucket_page.h"
 #include "ui/settings_page.h"
+#include "ui/doctor_page.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -62,8 +71,8 @@ MainWindow::MainWindow(ScoopService* service, QWidget* parent)
 
 void MainWindow::setupUi() {
     setWindowTitle(tr("gScoop"));
-    resize(1120, 740);
-    setMinimumSize(880, 580);
+    resize(1180, 740);
+    setMinimumSize(900, 580);
 
     // ===== VSCode 风格布局：活动栏 | (标题栏 + 内容) =====
     auto* rootLayout = new QHBoxLayout;
@@ -75,7 +84,8 @@ void MainWindow::setupUi() {
     m_navButtons.append(activityBar->addItem(QString::fromUtf8("🔍"), tr("搜索")));   // 0
     m_navButtons.append(activityBar->addItem(QString::fromUtf8("📦"), tr("已安装"))); // 1
     m_navButtons.append(activityBar->addItem(QString::fromUtf8("🗂️"), tr("Bucket"))); // 2
-    m_navButtons.append(activityBar->addItem(QString::fromUtf8("⚙️"), tr("设置")));   // 3
+    m_navButtons.append(activityBar->addItem(QString::fromUtf8("🧰"), tr("Doctor"))); // 3
+    m_navButtons.append(activityBar->addItem(QString::fromUtf8("⚙️"), tr("设置")));   // 4
     rootLayout->addWidget(activityBar);
 
     connect(activityBar, &ActivityBar::itemClicked, this,
@@ -113,12 +123,14 @@ void MainWindow::setupUi() {
     m_searchPage = new SearchPage(m_service, this);
     m_bucketPage = new BucketPage(m_service, this);
     m_installedPage = new InstalledPage(m_service, this);
+    m_doctorPage = new DoctorPage(m_service, this);
     m_settingsPage = new SettingsPage(m_service, this);
 
     m_stack->addWidget(m_searchPage);      // 0
     m_stack->addWidget(m_bucketPage);      // 1
     m_stack->addWidget(m_installedPage);   // 2
-    m_stack->addWidget(m_settingsPage);    // 3
+    m_stack->addWidget(m_doctorPage);      // 3
+    m_stack->addWidget(m_settingsPage);    // 4
 
     rightLayout->addWidget(m_stack, 1);
     rootLayout->addWidget(rightSide, 1);
@@ -132,7 +144,8 @@ void MainWindow::setupUi() {
     int idx = 0;
     if (launch == "installed") idx = 1;
     else if (launch == "buckets") idx = 2;
-    else if (launch == "settings") idx = 3;
+    else if (launch == "doctor") idx = 3;
+    else if (launch == "settings") idx = 4;
     navigateTo(idx, false);
 }
 
@@ -158,8 +171,8 @@ void MainWindow::setupTray() {
 
 void MainWindow::navigateTo(int pageIndex, bool animate) {
     if (!m_stack) return;
-    // 活动栏按钮索引映射：0=search 1=installed 2=bucket 3=settings
-    // 页面堆栈索引：0=search 1=bucket 2=installed 3=settings
+    // 活动栏按钮索引：0=search 1=installed 2=bucket 3=doctor 4=settings
+    // 页面堆栈索引：0=search 1=bucket 2=installed 3=doctor 4=settings
     int stackIdx = pageIndex;
     if (pageIndex == 1) stackIdx = 2;   // installed
     else if (pageIndex == 2) stackIdx = 1;  // bucket
@@ -172,7 +185,8 @@ void MainWindow::navigateTo(int pageIndex, bool animate) {
     case 0: m_searchPage->onPageShown(); break;
     case 1: m_installedPage->onPageShown(); break;
     case 2: m_bucketPage->onPageShown(); break;
-    case 3: m_settingsPage->onPageShown(); break;
+    case 3: m_doctorPage->onPageShown(); break;
+    case 4: m_settingsPage->onPageShown(); break;
     }
 }
 
@@ -204,6 +218,7 @@ void MainWindow::applyTheme(const QString& themeId) {
     for (QWidget* w : {qobject_cast<QWidget*>(m_searchPage),
                        qobject_cast<QWidget*>(m_bucketPage),
                        qobject_cast<QWidget*>(m_installedPage),
+                       qobject_cast<QWidget*>(m_doctorPage),
                        qobject_cast<QWidget*>(m_settingsPage)}) {
         if (!w) continue;
         QPalette wp = w->palette();
@@ -222,6 +237,18 @@ void MainWindow::applyTheme(const QString& themeId) {
 
     // Windows 原生标题栏跟随主题
     setDarkTitleBar(this, dark);
+}
+
+void MainWindow::showEvent(QShowEvent* event) {
+    // 首次显示时居中（避免右侧超出屏幕导致控件被裁）
+    if (!m_centered) {
+        m_centered = true;
+        if (QScreen* screen = QGuiApplication::primaryScreen()) {
+            const QRect avail = screen->availableGeometry();
+            move(avail.center() - QPoint(width() / 2, height() / 2));
+        }
+    }
+    QMainWindow::showEvent(event);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {

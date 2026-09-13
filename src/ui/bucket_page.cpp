@@ -19,6 +19,9 @@
 #include "core/scoop_service.h"
 #include "core/theme_manager.h"
 #include "ui/theme.h"
+#include "ui/icon_painter.h"
+#include "ui/add_bucket_dialog.h"
+#include "ui/explore_bucket_dialog.h"
 
 // 预置常用 buckets（GitHub 官方地址）
 static const QVector<PresetBucket> kPresets = {
@@ -130,6 +133,22 @@ void BucketPage::setupUi() {
     titleRow->addWidget(title);
     titleRow->addStretch();
 
+    // 探索新仓库
+    m_exploreBtn = new QPushButton(this);
+    m_exploreBtn->setIcon(IconPainter::globe(Theme::text(false), 16));
+    m_exploreBtn->setText(tr("探索新仓库"));
+    m_exploreBtn->setToolTip(tr("搜索 GitHub 上的 bucket 仓库"));
+    m_exploreBtn->setMinimumHeight(32);
+    titleRow->addWidget(m_exploreBtn);
+
+    // 添加 Bucket
+    m_addBtn = new QPushButton(this);
+    m_addBtn->setIcon(IconPainter::plus(Theme::text(false), 16));
+    m_addBtn->setText(tr("添加 Bucket"));
+    m_addBtn->setToolTip(tr("添加单个或批量添加 bucket"));
+    m_addBtn->setMinimumHeight(32);
+    titleRow->addWidget(m_addBtn);
+
     // 镜像切换
     titleRow->addWidget(new QLabel(tr("下载镜像:"), this));
     m_mirrorCombo = new QComboBox(this);
@@ -140,8 +159,7 @@ void BucketPage::setupUi() {
     m_mirrorCombo->setMinimumWidth(140);
     titleRow->addWidget(m_mirrorCombo);
 
-    m_refreshBtn = new QPushButton(tr("刷新"), this);
-    titleRow->addWidget(m_refreshBtn);
+    // 刷新按钮移到"已添加的 Buckets"标题行（标题行空间不足）
     layout->addLayout(titleRow);
 
     // ---- 预置 buckets 网格（卡片）----
@@ -163,11 +181,22 @@ void BucketPage::setupUi() {
     layout->addWidget(scroll);
 
     // ---- 已安装 buckets 列表 ----
+    auto* installedRow = new QHBoxLayout;
     auto* installedTitle = new QLabel(tr("已添加的 Buckets"), this);
     QFont ipf = installedTitle->font();
     ipf.setBold(true);
     installedTitle->setFont(ipf);
-    layout->addWidget(installedTitle);
+    installedRow->addWidget(installedTitle);
+    installedRow->addStretch();
+
+    // 刷新按钮（放这里空间充足）
+    m_refreshBtn = new QPushButton(this);
+    m_refreshBtn->setIcon(IconPainter::refresh(Theme::text(false), 16));
+    m_refreshBtn->setText(tr("刷新"));
+    m_refreshBtn->setToolTip(tr("刷新 bucket 列表"));
+    m_refreshBtn->setMinimumHeight(30);
+    installedRow->addWidget(m_refreshBtn);
+    layout->addLayout(installedRow);
 
     m_countLabel = new QLabel(tr("0 个"), this);
     layout->addWidget(m_countLabel);
@@ -184,6 +213,8 @@ void BucketPage::setupUi() {
             this, &BucketPage::onMirrorChanged);
     connect(m_removeBtn, &QPushButton::clicked, this, &BucketPage::onRemoveBucket);
     connect(m_refreshBtn, &QPushButton::clicked, this, &BucketPage::onRefreshClicked);
+    connect(m_addBtn, &QPushButton::clicked, this, &BucketPage::onAddBucketClicked);
+    connect(m_exploreBtn, &QPushButton::clicked, this, &BucketPage::onExploreClicked);
     connect(m_list, &QListWidget::customContextMenuRequested, this,
             [this](const QPoint& pos) {
         if (!m_list->itemAt(pos)) return;
@@ -298,4 +329,18 @@ void BucketPage::onPageShown() {
     } else {
         m_service->fetchBuckets();
     }
+}
+
+void BucketPage::onAddBucketClicked() {
+    AddBucketDialog dlg(m_service, this);
+    dlg.exec();
+    // 添加后刷新
+    m_service->fetchBuckets();
+}
+
+void BucketPage::onExploreClicked() {
+    // 探索新仓库弹窗（独立实现）
+    ExploreBucketDialog dlg(m_service, this);
+    dlg.exec();
+    m_service->fetchBuckets();
 }

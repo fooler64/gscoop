@@ -20,7 +20,8 @@ enum class ScoopOpType {
     BucketRemove,
     Cleanup,
     CacheRm,
-    UpdateAll
+    UpdateAll,
+    VirusTotal
 };
 
 // 操作进度信息（对应原版 OperationModal）
@@ -63,9 +64,15 @@ public:
     void updateAllPackages();
     void holdPackage(const QString& name, bool hold);
     void addBucket(const QString& name, const QString& url);
+    // 批量添加多个 bucket（name, url 对），scoop bucket add name1 url1 name2 url2 ...
+    void addBuckets(const QVector<QPair<QString, QString>>& buckets);
     void removeBucket(const QString& name);
     void cleanupApps();
     void cleanupCache();
+    // Doctor 环境自检（同步执行系统命令，返回检查项）
+    QVector<DoctorCheckItem> runDoctor();
+    // VirusTotal 查毒（调用 scoop virustotal <package>）
+    void scanVirusTotal(const QString& package);
 
     // 当前操作状态
     bool isBusy() const { return m_currentOp != ScoopOpType::None; }

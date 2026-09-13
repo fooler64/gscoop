@@ -380,6 +380,16 @@ void ScoopService::addBucket(const QString& name, const QString& url) {
     runScoop(args, ScoopOpType::BucketAdd, name);
 }
 
+void ScoopService::addBuckets(const QVector<QPair<QString, QString>>& buckets) {
+    if (buckets.isEmpty()) return;
+    QStringList args{"bucket", "add"};
+    for (const auto& b : buckets) {
+        args << b.first;
+        if (!b.second.isEmpty()) args << b.second;
+    }
+    runScoop(args, ScoopOpType::BucketAdd, tr("批量添加 %1 个 bucket").arg(buckets.size()));
+}
+
 void ScoopService::removeBucket(const QString& name) {
     runScoop({"bucket", "rm", name}, ScoopOpType::BucketRemove, name);
 }
@@ -388,8 +398,106 @@ void ScoopService::cleanupApps() {
     runScoop({"cleanup"}, ScoopOpType::Cleanup, QString());
 }
 
+// Doctor 环境自检：检查 git/7zip/main bucket/开发者模式/长路径/NTFS 等
+QVector<DoctorCheckItem> ScoopService::runDoctor() {
+    QVector<DoctorCheckItem> items;
+
+    auto addItem = [&items](const QString& title, bool passed, const QString& detail = QString(),
+                            const QString& desc = QString(), bool warning = false) {
+        DoctorCheckItem item;
+        item.title = title;
+        item.passed = passed;
+        item.warning = warning;
+        item.detail = detail;
+        item.description = desc;
+        items.append(item);
+    };
+
+    // 1. Git
+    QProcess gitProc;
+    gitProc.start("git", {"--version"});
+    gitProc.waitForFinished(8000);
+    const QString gitOut = QString::fromLocal8Bit(gitProc.readAllStandardOutput()).trimmed();
+    addItem(tr("Git 已安装"), !gitOut.isEmpty(), gitOut,
+            gitOut.isEmpty() ? tr("请安装 git：scoop install git") : QString());
+
+    // 2. Scoop 本体
+    addItem(tr("Scoop 已安装"), isScoopInstalled(), m_scoopPath,
+            isScoopInstalled() ? QString() : tr("未检测到 Scoop，请先安装"));
+
+    // 3. 7zip（解压依赖）
+    bool has7zip = false;
+    QString sevenZipPath;
+    const QStringList candidates = {
+        m_appsDir + "/7zip/current/7z.exe",
+        m_appsDir + "/7zip/7z.exe",
+    };
+    for (const QString& c : candidates) {
+        if (QFile::exists(c)) { has7zip = true; sevenZipPath = c; break; }
+    }
+    addItem(tr("7zip 已安装"), has7zip,
+            has7zip ? sevenZipPath : QString(),
+            has7zip ? QString() : tr("缺少 7zip，可能影响解压：scoop install 7zip"));
+
+    // 4. main bucket
+    const QString mainBucket = bucketsRootDir() + "/main";
+    const bool hasMain = QDir(mainBucket).exists();
+    addItem(tr("Main bucket 已安装"), hasMain,
+            hasMain ? mainBucket : QString(),
+            hasMain ? QString() : tr("缺少 main bucket：scoop bucket add main"));
+
+    // 5. Windows 长路径支持（注册表 LongPathsEnabled）
+    {
+        QProcess reg;
+        reg.start("reg", {"query", "HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+                          "/v", "LongPathsEnabled"});
+        reg.waitForFinished(6000);
+        const QString out = QString::fromLocal8Bit(reg.readAllStandardOutput());
+        const bool enabled = out.contains("0x1");
+        addItem(tr("Windows 长路径已启用"), enabled,
+                enabled ? tr("已启用") : tr("未启用"),
+                enabled ? QString() : tr("建议启用长路径支持以处理深层路径（regedit → LongPathsEnabled=1）"),
+                true);  // 警告级别
+    }
+
+    // 6. Scoop 在 NTFS 上（非 FAT）
+    {
+        // 检查 scoop 目录所在盘的文件系统
+        QProcess fs;
+        fs.start("wmic", {"logicaldisk", "where", "name='" + m_scoopPath.left(2) + "'",
+                          "get", "filesystem"});
+        fs.waitForFinished(6000);
+        const QString out = QString::fromLocal8Bit(fs.readAllStandardOutput()).toUpper();
+        const bool ntfs = out.contains("NTFS");
+        addItem(tr("Scoop 位于 NTFS 磁盘"), ntfs,
+                ntfs ? tr("NTFS") : out.simplified(),
+                ntfs ? QString() : tr("Scoop 应安装在 NTFS 磁盘上（FAT32 不支持符号链接）"),
+                true);
+    }
+
+    // 7. 开发者模式（用于符号链接）
+    {
+        QProcess reg;
+        reg.start("reg", {"query", "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock",
+                          "/v", "AllowDevelopmentWithoutDevLicense"});
+        reg.waitForFinished(6000);
+        const QString out = QString::fromLocal8Bit(reg.readAllStandardOutput());
+        const bool devMode = out.contains("0x1");
+        addItem(tr("开发者模式已启用"), devMode,
+                devMode ? tr("已启用") : tr("未启用"),
+                devMode ? QString() : tr("开发者模式有助于 Scoop 使用符号链接（可选）"),
+                true);
+    }
+
+    return items;
+}
+
 void ScoopService::cleanupCache() {
     runScoop({"cache", "rm", "*"}, ScoopOpType::CacheRm, QString());
+}
+
+void ScoopService::scanVirusTotal(const QString& package) {
+    runScoop({"virustotal", package}, ScoopOpType::VirusTotal, package);
 }
 
 void ScoopService::onProcessOutput() {

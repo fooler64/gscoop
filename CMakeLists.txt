@@ -25,6 +25,12 @@ set(SOURCES
     src/ui/bucket_page.cpp
     src/ui/settings_page.cpp
     src/ui/package_info_dialog.cpp
+    src/ui/icon_painter.cpp
+    src/ui/add_bucket_dialog.cpp
+    src/ui/add_buckets_dialog.cpp
+    src/ui/explore_bucket_dialog.cpp
+    src/ui/doctor_page.cpp
+    src/ui/modern_style.cpp
 )
 
 set(HEADERS
@@ -41,6 +47,12 @@ set(HEADERS
     src/ui/bucket_page.h
     src/ui/settings_page.h
     src/ui/package_info_dialog.h
+    src/ui/icon_painter.h
+    src/ui/add_bucket_dialog.h
+    src/ui/add_buckets_dialog.h
+    src/ui/explore_bucket_dialog.h
+    src/ui/doctor_page.h
+    src/ui/modern_style.h
 )
 
 qt_add_executable(gscoop

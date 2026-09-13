@@ -5,27 +5,44 @@
 #include <QFormLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QDesktopServices>
 #include <QUrl>
 #include <QMessageBox>
 
 #include "core/scoop_service.h"
+#include "core/theme_manager.h"
+#include "ui/theme.h"
 
 PackageInfoDialog::PackageInfoDialog(ScoopService* service, const QString& packageName,
                                      QWidget* parent)
     : QDialog(parent), m_service(service), m_name(packageName) {
     setWindowTitle(tr("包信息 - %1").arg(packageName));
-    setMinimumWidth(480);
+    resize(520, 560);
 
-    auto* layout = new QVBoxLayout(this);
+    const bool dark = ThemeManager::instance().isDark();
+
+    auto* outer = new QVBoxLayout(this);
+    outer->setContentsMargins(0, 0, 0, 0);
+
+    auto* scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    outer->addWidget(scroll);
+
+    auto* container = new QWidget(scroll);
+    scroll->setWidget(container);
+    auto* layout = new QVBoxLayout(container);
+    layout->setContentsMargins(28, 24, 28, 20);
     layout->setSpacing(12);
 
-    m_nameLabel = new QLabel(packageName, this);
+    m_nameLabel = new QLabel(packageName, container);
     QFont nameFont = m_nameLabel->font();
     nameFont.setPointSize(nameFont.pointSize() + 4);
     nameFont.setBold(true);
@@ -33,64 +50,89 @@ PackageInfoDialog::PackageInfoDialog(ScoopService* service, const QString& packa
     layout->addWidget(m_nameLabel);
 
     auto* form = new QFormLayout;
-    m_versionLabel = new QLabel("-", this);
-    m_sourceLabel = new QLabel("-", this);
-    m_descLabel = new QLabel("-", this);
+    form->setSpacing(8);
+    m_versionLabel = new QLabel("-", container);
+    m_sourceLabel = new QLabel("-", container);
+    m_descLabel = new QLabel("-", container);
     m_descLabel->setWordWrap(true);
-    m_homepageLabel = new QLabel("-", this);
+    m_descLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_homepageLabel = new QLabel("-", container);
     m_homepageLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
     m_homepageLabel->setOpenExternalLinks(true);
-    m_licenseLabel = new QLabel("-", this);
+    m_licenseLabel = new QLabel("-", container);
+    m_dependsLabel = new QLabel("-", container);
+    m_dependsLabel->setWordWrap(true);
+    m_urlLabel = new QLabel("-", container);
+    m_urlLabel->setWordWrap(true);
+    m_urlLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_authorLabel = new QLabel("-", container);
+    m_notesLabel = new QLabel("-", container);
+    m_notesLabel->setWordWrap(true);
+    m_notesLabel->setStyleSheet(QString("color:%1;").arg(Theme::warn(dark).name()));
 
     form->addRow(tr("版本:"), m_versionLabel);
     form->addRow(tr("Bucket:"), m_sourceLabel);
     form->addRow(tr("描述:"), m_descLabel);
+    form->addRow(tr("依赖:"), m_dependsLabel);
     form->addRow(tr("主页:"), m_homepageLabel);
     form->addRow(tr("许可证:"), m_licenseLabel);
+    form->addRow(tr("下载:"), m_urlLabel);
+    form->addRow(tr("作者:"), m_authorLabel);
+    form->addRow(tr("备注:"), m_notesLabel);
     layout->addLayout(form);
 
     auto* btnRow = new QHBoxLayout;
     btnRow->addStretch();
-    m_installBtn = new QPushButton(tr("安装"), this);
-    m_uninstallBtn = new QPushButton(tr("卸载"), this);
+    m_vtBtn = new QPushButton(tr("VirusTotal 查毒"), container);
+    m_vtBtn->setToolTip(tr("使用 VirusTotal 扫描此软件（需要 scoop-virustotal 扩展）"));
+    m_vtBtn->setEnabled(false);  // 只有已安装的能扫描（需要本地文件 hash）
+    m_uninstallBtn = new QPushButton(tr("卸载"), container);
     m_uninstallBtn->setEnabled(false);
+    m_installBtn = new QPushButton(tr("安装"), container);
+    btnRow->addWidget(m_vtBtn);
     btnRow->addWidget(m_uninstallBtn);
     btnRow->addWidget(m_installBtn);
     layout->addLayout(btnRow);
 
     connect(m_installBtn, &QPushButton::clicked, this, &PackageInfoDialog::onInstall);
     connect(m_uninstallBtn, &QPushButton::clicked, this, &PackageInfoDialog::onUninstall);
+    connect(m_vtBtn, &QPushButton::clicked, this, &PackageInfoDialog::onScanVirusTotal);
 
     fetchInfo();
 }
 
-void PackageInfoDialog::fetchInfo() {
-    // 从已安装目录或 bucket manifest 读取信息
-    const QString appsDir = m_service->scoopAppsDir();
-    QString manifestPath;
-
+QString PackageInfoDialog::findManifest() {
     // 1. 已安装：<apps>/<name>/current/manifest.json
+    const QString appsDir = m_service->scoopAppsDir();
     QFileInfo instManifest(appsDir + "/" + m_name + "/current/manifest.json");
     if (instManifest.exists()) {
-        manifestPath = instManifest.absoluteFilePath();
         m_uninstallBtn->setEnabled(true);
+        m_vtBtn->setEnabled(true);
+        return instManifest.absoluteFilePath();
     }
-
-    // 2. 未安装：搜索 bucket 目录
-    if (manifestPath.isEmpty()) {
-        const QString home = QDir::homePath();
-        QDir bucketsDir(home + "/scoop/apps");
-        const QStringList entries = bucketsDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-        for (const QString& bucket : entries) {
-            QFileInfo bm(home + "/scoop/apps/" + bucket + "/" + m_name + ".json");
-            if (bm.exists()) {
-                manifestPath = bm.absoluteFilePath();
-                m_sourceLabel->setText(bucket);
-                break;
-            }
+    // 2. 搜索 bucket：~/scoop/buckets/<bucket>/bucket/<name>.json
+    const QString home = QDir::homePath();
+    QDir bucketsRoot(home + "/scoop/buckets");
+    const QStringList buckets = bucketsRoot.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString& bucket : buckets) {
+        QFileInfo bm(home + "/scoop/buckets/" + bucket + "/bucket/" + m_name + ".json");
+        if (bm.exists()) {
+            m_sourceLabel->setText(bucket);
+            return bm.absoluteFilePath();
+        }
+        // 某些 bucket 结构：<bucket>/<name>.json（旧式）
+        QFileInfo bm2(home + "/scoop/buckets/" + bucket + "/" + m_name + ".json");
+        if (bm2.exists()) {
+            m_sourceLabel->setText(bucket);
+            return bm2.absoluteFilePath();
         }
     }
+    return QString();
+}
 
+void PackageInfoDialog::fetchInfo() {
+    const bool dark = ThemeManager::instance().isDark();
+    const QString manifestPath = findManifest();
     if (manifestPath.isEmpty()) {
         m_descLabel->setText(tr("（未找到 manifest）"));
         return;
@@ -103,13 +145,46 @@ void PackageInfoDialog::fetchInfo() {
     m_versionLabel->setText(obj.value("version").toString("-"));
     m_descLabel->setText(obj.value("description").toString("-"));
     m_licenseLabel->setText(obj.value("license").toString("-"));
+    m_authorLabel->setText(obj.value("author").toString("-"));
+
     const QString homepage = obj.value("homepage").toString();
     if (!homepage.isEmpty()) {
         m_homepageLabel->setText(QString("<a href=\"%1\">%1</a>").arg(homepage));
     }
+
+    // 依赖：depends 字段（字符串或数组）
+    const QJsonValue dependsVal = obj.value("depends");
+    if (dependsVal.isArray()) {
+        QStringList deps;
+        for (const auto& v : dependsVal.toArray()) deps << v.toString();
+        m_dependsLabel->setText(deps.isEmpty() ? "-" : deps.join(", "));
+    } else if (dependsVal.isString()) {
+        m_dependsLabel->setText(dependsVal.toString());
+    } else {
+        m_dependsLabel->setText("-");
+    }
+
+    // 下载 URL：url / url64
+    QString url = obj.value("url64").toString();
+    if (url.isEmpty()) url = obj.value("url").toString();
+    m_urlLabel->setText(url.isEmpty() ? "-" : url);
+
+    // 备注：notes
+    const QJsonValue notesVal = obj.value("notes");
+    if (notesVal.isString()) {
+        m_notesLabel->setText(notesVal.toString());
+    } else if (notesVal.isArray()) {
+        QStringList notes;
+        for (const auto& v : notesVal.toArray()) notes << v.toString();
+        m_notesLabel->setText(notes.join("\n"));
+    } else {
+        m_notesLabel->hide();
+    }
+
     // deprecated
     if (obj.contains("deprecated")) {
         m_descLabel->setText(tr("[已废弃] ") + m_descLabel->text());
+        m_descLabel->setStyleSheet(QString("color:%1;").arg(Theme::danger(dark).name()));
     }
 }
 
@@ -134,4 +209,13 @@ void PackageInfoDialog::onUninstall() {
         m_service->uninstallPackage(m_name);
         accept();
     }
+}
+
+void PackageInfoDialog::onScanVirusTotal() {
+    QMessageBox::information(this, tr("VirusTotal 查毒"),
+        tr("将调用 scoop virustotal %1 进行扫描。\n"
+           "需要已安装 scoop-virustotal 扩展并配置 API key。\n"
+           "扫描可能需要较长时间，请在弹出的操作进度中查看结果。")
+            .arg(m_name));
+    m_service->scanVirusTotal(m_name);
 }
