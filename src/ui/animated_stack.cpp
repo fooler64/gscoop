@@ -3,6 +3,7 @@
 
 #include <QPainter>
 #include <QWidget>
+#include <QLayout>
 #include <QEvent>
 #include <QDebug>
 
@@ -31,6 +32,15 @@ void AnimatedStackedWidget::setCurrentIndex(int index, bool animate) {
         QStackedWidget::setCurrentIndex(index);
         return;
     }
+
+    // 关键：新页从未显示过，render 前必须强制布局/设置几何，
+    // 否则动画期间 render 出空白或错位内容
+    m_newWidget->ensurePolished();
+    m_newWidget->setGeometry(rect());
+    if (auto* lay = m_newWidget->layout()) {
+        lay->activate();
+    }
+    m_newWidget->update();
 
     m_animRunning = true;
     m_progress = 0.0;
@@ -77,6 +87,8 @@ void AnimatedStackedWidget::paintEvent(QPaintEvent* event) {
     // 2. 顶层：新页面淡入 + 轻微右滑
     const double p = m_progress;
     painter.save();
+    // 先铺不透明背景，避免新页透明处透出旧页造成闪烁
+    painter.fillRect(rect(), m_newWidget->palette().window());
     painter.setOpacity(p);
     // 从右 24px 滑入到 0
     const int offset = int((1.0 - p) * 24.0);
