@@ -144,11 +144,14 @@ void InstalledCard::paintEvent(QPaintEvent* event) {
 
 void InstalledCard::mousePressEvent(QMouseEvent* event) {
     const QPoint pos = event->pos();
-    if (m_lockRect.contains(pos)) {
+    // 扩大点击热区（图标周围加 padding，方便点击）
+    const QRect lockHit = m_lockRect.adjusted(-6, -6, 6, 6);
+    const QRect trashHit = m_trashRect.adjusted(-6, -6, 6, 6);
+    if (lockHit.contains(pos)) {
         emit holdRequested(m_pkg.pkg.name);
         return;
     }
-    if (m_trashRect.contains(pos)) {
+    if (trashHit.contains(pos)) {
         emit uninstallRequested(m_pkg.pkg.name);
         return;
     }

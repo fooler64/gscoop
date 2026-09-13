@@ -98,6 +98,18 @@ void ExploreBucketDialog::setupUi() {
     filterRow->addWidget(m_sortCombo);
 
     filterRow->addSpacing(12);
+    filterRow->addWidget(new QLabel(tr("数量:"), this));
+    m_perPageCombo = new QComboBox(this);
+    m_perPageCombo->addItem("10", 10);
+    m_perPageCombo->addItem("30", 30);
+    m_perPageCombo->addItem("50", 50);   // 默认
+    m_perPageCombo->addItem("100", 100);
+    m_perPageCombo->setCurrentIndex(2);
+    m_perPageCombo->setMinimumWidth(70);
+    m_perPageCombo->setToolTip(tr("每次搜索展示的仓库数量"));
+    filterRow->addWidget(m_perPageCombo);
+
+    filterRow->addSpacing(12);
     filterRow->addWidget(new QLabel(tr("最小 Stars:"), this));
     m_minStarsSpin = new QSpinBox(this);
     m_minStarsSpin->setRange(0, 10000);
@@ -142,6 +154,8 @@ void ExploreBucketDialog::setupUi() {
     connect(m_searchEdit, &QLineEdit::returnPressed, this, &ExploreBucketDialog::onSearch);
     connect(m_sortCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, &ExploreBucketDialog::onSortChanged);
+    connect(m_perPageCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int) { if (!m_searching) onSearch(); });
     connect(m_minStarsSpin, QOverload<int>::of(&QSpinBox::valueChanged),
             this, [this](int) { if (!m_searching) onSearch(); });
     connect(m_hideChineseCheck, &QCheckBox::toggled,
@@ -186,7 +200,7 @@ void ExploreBucketDialog::onSearch() {
     query.addQueryItem("q", buildQuery());
     query.addQueryItem("sort", m_sortCombo->currentData().toString());
     query.addQueryItem("order", "desc");
-    query.addQueryItem("per_page", "50");
+    query.addQueryItem("per_page", QString::number(m_perPageCombo->currentData().toInt()));
     url.setQuery(query);
 
     QNetworkRequest req(url);

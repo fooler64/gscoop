@@ -126,6 +126,11 @@ InstalledBucketCard::InstalledBucketCard(const BucketInfo& bucket, QWidget* pare
 
     const bool dark = ThemeManager::instance().isDark();
 
+    // 所有子 QLabel 不拦截鼠标事件（点击穿透到卡片本身，处理点击逻辑）
+    auto transparentForMouse = [](QLabel* lbl) {
+        lbl->setAttribute(Qt::WA_TransparentForMouseEvents);
+    };
+
     auto* nameRow = new QHBoxLayout;
     auto* nameLbl = new QLabel(m_bucket.name, this);
     QFont nf = nameLbl->font();
@@ -133,10 +138,12 @@ InstalledBucketCard::InstalledBucketCard(const BucketInfo& bucket, QWidget* pare
     nf.setPointSizeF(nf.pointSizeF() + 0.5);
     nameLbl->setFont(nf);
     nameLbl->setStyleSheet(QString("color:%1;").arg(Theme::text(dark).name()));
+    transparentForMouse(nameLbl);
     nameRow->addWidget(nameLbl);
 
     auto* countLbl = new QLabel(tr("%1 manifests").arg(m_bucket.manifest_count), this);
     countLbl->setStyleSheet(QString("color:%1;font-size:11px;").arg(Theme::success(dark).name()));
+    transparentForMouse(countLbl);
     nameRow->addWidget(countLbl);
     nameRow->addStretch();
 
@@ -144,6 +151,7 @@ InstalledBucketCard::InstalledBucketCard(const BucketInfo& bucket, QWidget* pare
     auto* trashBtn = new QLabel(this);
     trashBtn->setPixmap(IconPainter::trash(Theme::textSub(dark), 14).pixmap(14, 14));
     trashBtn->setToolTip(tr("删除此 bucket"));
+    transparentForMouse(trashBtn);
     nameRow->addWidget(trashBtn);
 
     lay->addLayout(nameRow);
@@ -154,6 +162,7 @@ InstalledBucketCard::InstalledBucketCard(const BucketInfo& bucket, QWidget* pare
     urlLbl->setFont(uf);
     urlLbl->setStyleSheet(QString("color:%1;").arg(Theme::textSub(dark).name()));
     urlLbl->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    transparentForMouse(urlLbl);
     lay->addWidget(urlLbl);
 }
 

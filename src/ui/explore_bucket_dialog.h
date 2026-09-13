@@ -50,6 +50,7 @@ private:
     QLineEdit* m_searchEdit = nullptr;
     QPushButton* m_searchBtn = nullptr;
     QComboBox* m_sortCombo = nullptr;
+    QComboBox* m_perPageCombo = nullptr;
     QSpinBox* m_minStarsSpin = nullptr;
     QCheckBox* m_hideChineseCheck = nullptr;
     QListWidget* m_resultList = nullptr;

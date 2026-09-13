@@ -161,7 +161,7 @@ QVector<InstalledPackage> ScoopService::scanInstalledImpl(
         ip.pkg.version = version;
         ip.install_path = versionDir;
 
-        // install.json
+        // install.json（含 bucket 与 hold 状态）
         QFile ifile(versionDir + "/install.json");
         if (ifile.open(QIODevice::ReadOnly)) {
             const QJsonObject obj = QJsonDocument::fromJson(ifile.readAll()).object();
@@ -169,6 +169,8 @@ QVector<InstalledPackage> ScoopService::scanInstalledImpl(
             if (ip.pkg.source.isEmpty() && obj.value("version").isString()) {
                 ip.pkg.version = obj.value("version").toString();
             }
+            // hold 状态（scoop core.ps1: $status.hold = ($install_info.hold -eq $true)）
+            ip.is_held = obj.value("hold").toBool(false);
             ifile.close();
         }
         // manifest.json
