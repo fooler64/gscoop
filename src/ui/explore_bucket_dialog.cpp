@@ -14,6 +14,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
+#include <QNetworkProxyFactory>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -47,6 +48,9 @@ ExploreBucketDialog::ExploreBucketDialog(ScoopService* service, QWidget* parent)
     setupUi();
     m_nam = new QNetworkAccessManager(this);
     connect(m_nam, &QNetworkAccessManager::finished, this, &ExploreBucketDialog::onReplyFinished);
+
+    // 自动使用系统代理（Clash 等本地代理生效）
+    QNetworkProxyFactory::setUseSystemConfiguration(true);
 }
 
 void ExploreBucketDialog::setupUi() {

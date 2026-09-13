@@ -60,6 +60,11 @@ BucketCard::BucketCard(const QString& name, const QString& url, const QString& d
     lay->setContentsMargins(12, 8, 12, 8);
     lay->setSpacing(2);
 
+    // QLabel 不拦截鼠标事件（点击穿透到卡片，触发 clicked）
+    auto transparentForMouse = [](QLabel* lbl) {
+        lbl->setAttribute(Qt::WA_TransparentForMouseEvents);
+    };
+
     const bool dark = ThemeManager::instance().isDark();
     auto* nameLbl = new QLabel(name, this);
     QFont nf = nameLbl->font();
@@ -67,6 +72,7 @@ BucketCard::BucketCard(const QString& name, const QString& url, const QString& d
     nameLbl->setFont(nf);
     nameLbl->setStyleSheet(QString("color:%1;").arg(
         (installed ? Theme::success(dark) : Theme::text(dark)).name()));
+    transparentForMouse(nameLbl);
 
     auto* descLbl = new QLabel(installed ? tr("✓ 已添加") : desc, this);
     QFont df = descLbl->font();
@@ -74,6 +80,7 @@ BucketCard::BucketCard(const QString& name, const QString& url, const QString& d
     descLbl->setFont(df);
     descLbl->setStyleSheet(QString("color:%1;").arg(
         (installed ? Theme::success(dark) : Theme::textSub(dark)).name()));
+    transparentForMouse(descLbl);
 
     lay->addWidget(nameLbl);
     lay->addWidget(descLbl);
