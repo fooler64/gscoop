@@ -12,6 +12,9 @@
 #include <QMenu>
 #include <QScrollArea>
 #include <QFrame>
+#include <QPainter>
+#include <QPen>
+#include <QSizePolicy>
 
 #include "core/scoop_service.h"
 #include "core/theme_manager.h"
@@ -35,6 +38,71 @@ static const QVector<PresetBucket> kPresets = {
 
 const QVector<PresetBucket>& BucketPage::presets() {
     return kPresets;
+}
+
+// ==================== BucketCard ====================
+BucketCard::BucketCard(const QString& name, const QString& url, const QString& desc,
+                       bool installed, QWidget* parent)
+    : QFrame(parent), m_name(name), m_url(url), m_installed(installed) {
+    setCursor(Qt::PointingHandCursor);
+    setToolTip(url);
+    setMinimumHeight(52);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
+    // 内部布局：两个 QLabel（QLabel 富文本渲染可靠）
+    auto* lay = new QVBoxLayout(this);
+    lay->setContentsMargins(12, 8, 12, 8);
+    lay->setSpacing(2);
+
+    const bool dark = ThemeManager::instance().isDark();
+    auto* nameLbl = new QLabel(name, this);
+    QFont nf = nameLbl->font();
+    nf.setBold(true);
+    nameLbl->setFont(nf);
+    nameLbl->setStyleSheet(QString("color:%1;").arg(
+        (installed ? Theme::success(dark) : Theme::text(dark)).name()));
+
+    auto* descLbl = new QLabel(installed ? tr("✓ 已添加") : desc, this);
+    QFont df = descLbl->font();
+    df.setPointSizeF(df.pointSizeF() - 1.5);
+    descLbl->setFont(df);
+    descLbl->setStyleSheet(QString("color:%1;").arg(
+        (installed ? Theme::success(dark) : Theme::textSub(dark)).name()));
+
+    lay->addWidget(nameLbl);
+    lay->addWidget(descLbl);
+}
+
+void BucketCard::mousePressEvent(QMouseEvent* event) {
+    Q_UNUSED(event);
+    emit clicked(m_name, m_url);
+    QFrame::mousePressEvent(event);
+}
+
+void BucketCard::enterEvent(QEnterEvent* event) {
+    m_hover = true;
+    update();
+    QFrame::enterEvent(event);
+}
+
+void BucketCard::leaveEvent(QEvent* event) {
+    m_hover = false;
+    update();
+    QFrame::leaveEvent(event);
+}
+
+void BucketCard::paintEvent(QPaintEvent* event) {
+    Q_UNUSED(event);
+    QPainter p(this);
+    const bool dark = ThemeManager::instance().isDark();
+    const QColor base = m_installed ? Theme::surface3(dark) : Theme::surface2(dark);
+    QColor bg = m_hover ? Theme::blend(base, Theme::accent(dark), 0.08) : base;
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setPen(QPen(m_installed
+                      ? Theme::success(dark)
+                      : Theme::border(dark), 1));
+    p.setBrush(bg);
+    p.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 8, 8);
 }
 
 BucketPage::BucketPage(ScoopService* service, QWidget* parent)
@@ -155,31 +223,11 @@ void BucketPage::rebuildPresetGrid() {
         const PresetBucket& p = kPresets[i];
         const bool installed = m_installedNames.contains(p.name);
 
-        // 用 QPushButton 作为卡片（自带点击信号）
-        auto* card = new QPushButton(this);
-        card->setCursor(Qt::PointingHandCursor);
-        card->setMinimumHeight(52);
-        card->setToolTip(p.url);
-        // 两行文字：名称 + 描述
-        const bool dark = ThemeManager::instance().isDark();
-        const QColor descColor = installed ? Theme::success(dark) : Theme::textSub(dark);
-        const QColor nameColor  = installed ? Theme::success(dark) : Theme::text(dark);
-        QString text = QString("<b style='color:%1'>%2</b><br><span style='color:%3;font-size:11px'>%4</span>")
-                           .arg(nameColor.name(),
-                                p.name.toHtmlEscaped(),
-                                descColor.name(),
-                                (installed ? tr("✓ 已添加") : p.desc).toHtmlEscaped());
-        card->setText(text);
-
-        // 甘雨配色（主题驱动，代码调色板）
-        QPalette cp = card->palette();
-        cp.setColor(QPalette::Button, installed ? Theme::surface3(dark) : Theme::surface2(dark));
-        cp.setColor(QPalette::ButtonText, Theme::text(dark));
-        card->setPalette(cp);
-        card->setAutoFillBackground(true);
-
-        QObject::connect(card, &QPushButton::clicked, this,
-                         [this, p]() { onAddPreset(p.name, p.url); });
+        auto* card = new BucketCard(p.name, p.url, p.desc, installed, this);
+        QObject::connect(card, &BucketCard::clicked, this,
+                         [this](const QString& name, const QString& url) {
+            onAddPreset(name, url);
+        });
 
         m_presetLayout->addWidget(card, i / cols, i % cols);
     }

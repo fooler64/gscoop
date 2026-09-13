@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QWidget>
+#include <QFrame>
 #include <QSet>
 #include "models/scoop_models.h"
 #include "core/scoop_service.h"
@@ -12,6 +13,9 @@ class QLineEdit;
 class QComboBox;
 class QGridLayout;
 class QVBoxLayout;
+class QMouseEvent;
+class QPaintEvent;
+class QEnterEvent;
 class ScoopService;
 
 // 预置常用 bucket
@@ -19,6 +23,30 @@ struct PresetBucket {
     QString name;
     QString url;       // GitHub 原始地址
     QString desc;
+};
+
+// 常用 bucket 卡片：自绘背景/边框/hover，内部用 QLabel 渲染富文本
+// （QPushButton 的 rich text 渲染不可靠，会显示字面 HTML 标签）
+class BucketCard : public QFrame {
+    Q_OBJECT
+public:
+    BucketCard(const QString& name, const QString& url, const QString& desc,
+               bool installed, QWidget* parent = nullptr);
+
+signals:
+    void clicked(const QString& name, const QString& url);
+
+protected:
+    void mousePressEvent(QMouseEvent* event) override;
+    void enterEvent(QEnterEvent* event) override;
+    void leaveEvent(QEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
+
+private:
+    QString m_name;
+    QString m_url;
+    bool m_installed = false;
+    bool m_hover = false;
 };
 
 // Bucket 页：预置常用 buckets 网格 + 一键添加 + 国内镜像切换
