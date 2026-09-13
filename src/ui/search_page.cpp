@@ -5,8 +5,6 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QTabWidget>
-#include <QTableWidget>
-#include <QHeaderView>
 #include <QLabel>
 #include <QMessageBox>
 #include <QMenu>
@@ -14,12 +12,125 @@
 #include <QFileInfo>
 #include <QFrame>
 #include <QColor>
+#include <QPainter>
+#include <QPen>
+#include <QScrollArea>
+#include <QContextMenuEvent>
+#include <QMouseEvent>
+#include <QFontMetrics>
 
 #include "core/scoop_service.h"
+#include "core/theme_manager.h"
 #include "ui/package_info_dialog.h"
 #include "ui/theme.h"
 #include "ui/icon_painter.h"
 
+// ==================== SearchResultCard ====================
+SearchResultCard::SearchResultCard(const ScoopPackage& pkg, QWidget* parent)
+    : QFrame(parent), m_pkg(pkg) {
+    setCursor(Qt::PointingHandCursor);
+    setMinimumHeight(64);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    setToolTip(pkg.info);
+}
+
+void SearchResultCard::setInstalled(bool installed) {
+    m_pkg.is_installed = installed;
+    update();
+}
+
+void SearchResultCard::mousePressEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton) {
+        emit clicked(m_pkg.name);
+    }
+    QFrame::mousePressEvent(event);
+}
+
+void SearchResultCard::contextMenuEvent(QContextMenuEvent* event) {
+    auto* menu = new QMenu(this);
+    menu->addAction(tr("查看信息"), this, [this]() { emit infoRequested(m_pkg.name); });
+    menu->addAction(tr("安装"), this, [this]() { emit installRequested(m_pkg.name); });
+    menu->addAction(tr("卸载"), this, [this]() { emit uninstallRequested(m_pkg.name); });
+    menu->exec(event->globalPos());
+    delete menu;
+}
+
+void SearchResultCard::enterEvent(QEnterEvent* event) {
+    m_hover = true;
+    update();
+    QFrame::enterEvent(event);
+}
+
+void SearchResultCard::leaveEvent(QEvent* event) {
+    m_hover = false;
+    update();
+    QFrame::leaveEvent(event);
+}
+
+void SearchResultCard::paintEvent(QPaintEvent* event) {
+    Q_UNUSED(event);
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    const bool dark = ThemeManager::instance().isDark();
+
+    // 圆角卡片：bg=surface3（比页面背景深一档，卡片可见且结果区背景与页面同色），hover 时 blend accent
+    QColor bg = Theme::surface3(dark);
+    if (m_hover) bg = Theme::blend(bg, Theme::accent(dark), 0.1);
+    p.setPen(Qt::NoPen);
+    p.setBrush(bg);
+    p.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 10, 10);
+
+    const qreal w = width();
+    const qreal h = height();
+
+    // 状态徽标（右侧）
+    if (m_pkg.is_installed) {
+        const int bw = 52, bh = 18;
+        const QRect badge(int(w) - bw - 12, 8, bw, bh);
+        p.setPen(Qt::NoPen);
+        p.setBrush(Theme::success(dark));
+        p.drawRoundedRect(badge, 9, 9);
+        p.setPen(Theme::surface(dark));
+        QFont bf = font();
+        bf.setPointSizeF(bf.pointSizeF() - 1.5);
+        bf.setBold(true);
+        p.setFont(bf);
+        p.drawText(badge, Qt::AlignCenter, tr("已安装"));
+    }
+
+    // 名称（加粗）
+    QFont nameFont = font();
+    nameFont.setPointSizeF(nameFont.pointSizeF() + 0.5);
+    nameFont.setBold(true);
+    p.setFont(nameFont);
+    p.setPen(Theme::text(dark));
+    const QRect nameRect(14, 8, int(w) - 100, 22);
+    p.drawText(nameRect, Qt::AlignLeft | Qt::AlignVCenter,
+               QFontMetrics(nameFont).elidedText(m_pkg.name, Qt::ElideRight, nameRect.width()));
+
+    // 版本 + bucket
+    QFont subFont = font();
+    subFont.setPointSizeF(subFont.pointSizeF() - 1.0);
+    p.setFont(subFont);
+    p.setPen(Theme::textSub(dark));
+    const QString sub = QString("%1 · %2").arg(m_pkg.version, m_pkg.source);
+    const QRect subRect(14, 32, int(w) - 100, 16);
+    p.drawText(subRect, Qt::AlignLeft | Qt::AlignVCenter,
+               QFontMetrics(subFont).elidedText(sub, Qt::ElideRight, subRect.width()));
+
+    // 描述
+    if (!m_pkg.info.isEmpty()) {
+        QFont descFont = font();
+        descFont.setPointSizeF(descFont.pointSizeF() - 1.0);
+        p.setFont(descFont);
+        p.setPen(Theme::textSub(dark));
+        const QRect descRect(14, 48, int(w) - 28, 16);
+        p.drawText(descRect, Qt::AlignLeft | Qt::AlignVCenter,
+                   QFontMetrics(descFont).elidedText(m_pkg.info, Qt::ElideRight, descRect.width()));
+    }
+}
+
+// ==================== SearchPage ====================
 SearchPage::SearchPage(ScoopService* service, QWidget* parent)
     : QWidget(parent), m_service(service) {
     setupUi();
@@ -42,21 +153,29 @@ void SearchPage::setupUi() {
     title->setObjectName("sectionTitle");
     layout->addWidget(title);
 
-    // ---- 搜索栏（仿 rscoop：左侧放大镜图标，右侧清除按钮，无边框底色）----
+    // ---- 搜索栏（仿 rscoop：左侧放大镜图标，无边框底色，与结果区背景对调）----
     auto* searchRow = new QHBoxLayout;
     searchRow->setSpacing(10);
 
-    // 搜索容器（圆角底色，无边框，仿 rscoop bg-base-400）
     auto* searchWrap = new QFrame(this);
     searchWrap->setObjectName("card");
     auto* searchWrapLayout = new QHBoxLayout(searchWrap);
-    searchWrapLayout->setContentsMargins(12, 6, 12, 6);
-    searchWrapLayout->setSpacing(8);
+    searchWrapLayout->setContentsMargins(14, 8, 14, 8);
+    searchWrapLayout->setSpacing(10);
     searchWrap->setAutoFillBackground(true);
 
-    // 左侧放大镜图标（自绘）
+    // 搜索容器背景：用 accentDim（冰蓝中调，突出搜索框）
+    {
+        const bool dark = ThemeManager::instance().isDark();
+        QPalette sp = searchWrap->palette();
+        sp.setColor(QPalette::Window, Theme::accentDim(dark));
+        searchWrap->setPalette(sp);
+    }
+
+    // 左侧放大镜图标（自绘，用深色以在浅色底上可见）
     auto* searchIcon = new QLabel(searchWrap);
-    searchIcon->setPixmap(IconPainter::search(Theme::textSub(false), 18).pixmap(18, 18));
+    const bool dark = ThemeManager::instance().isDark();
+    searchIcon->setPixmap(IconPainter::search(Theme::text(dark), 18).pixmap(18, 18));
     searchWrapLayout->addWidget(searchIcon);
 
     m_searchEdit = new QLineEdit(searchWrap);
@@ -64,22 +183,51 @@ void SearchPage::setupUi() {
     m_searchEdit->setMinimumHeight(38);
     m_searchEdit->setClearButtonEnabled(true);
     m_searchEdit->setFont(QFont(m_searchEdit->font().family(), 11));
-    m_searchEdit->setFrame(false);   // 无边框，仿 rscoop
+    m_searchEdit->setFrame(false);
     m_searchEdit->setStyleSheet(QString("background:transparent;"));
     searchWrapLayout->addWidget(m_searchEdit, 1);
 
     searchRow->addWidget(searchWrap, 1);
     layout->addLayout(searchRow);
 
-    // ---- 结果 tabs（无边框，仿 rscoop）----
+    // ---- 结果 tabs（扁平无边框）----
     m_tabs = new QTabWidget(this);
-    m_tabs->setDocumentMode(true);   // 扁平无边框 tab
-    m_packageTable = new QTableWidget(this);
-    m_binaryTable = new QTableWidget(this);
-    setupTable(m_packageTable);
-    setupTable(m_binaryTable);
-    m_tabs->addTab(m_packageTable, tr("包 (0)"));
-    m_tabs->addTab(m_binaryTable, tr("二进制 (0)"));
+    m_tabs->setDocumentMode(true);
+
+    // 包 tab：卡片容器（背景透明，与页面同色）
+    auto* packagePage = new QWidget(this);
+    packagePage->setAutoFillBackground(false);
+    auto* packageScroll = new QScrollArea(packagePage);
+    packageScroll->setWidgetResizable(true);
+    packageScroll->setFrameShape(QFrame::NoFrame);
+    auto* packageHost = new QWidget(packageScroll);
+    m_packageLayout = new QVBoxLayout(packageHost);
+    m_packageLayout->setContentsMargins(0, 4, 0, 4);
+    m_packageLayout->setSpacing(8);
+    m_packageLayout->setAlignment(Qt::AlignTop);
+    packageScroll->setWidget(packageHost);
+    auto* packageOuter = new QVBoxLayout(packagePage);
+    packageOuter->setContentsMargins(0, 0, 0, 0);
+    packageOuter->addWidget(packageScroll);
+
+    // 二进制 tab：同结构
+    auto* binaryPage = new QWidget(this);
+    binaryPage->setAutoFillBackground(false);
+    auto* binaryScroll = new QScrollArea(binaryPage);
+    binaryScroll->setWidgetResizable(true);
+    binaryScroll->setFrameShape(QFrame::NoFrame);
+    auto* binaryHost = new QWidget(binaryScroll);
+    m_binaryLayout = new QVBoxLayout(binaryHost);
+    m_binaryLayout->setContentsMargins(0, 4, 0, 4);
+    m_binaryLayout->setSpacing(8);
+    m_binaryLayout->setAlignment(Qt::AlignTop);
+    binaryScroll->setWidget(binaryHost);
+    auto* binaryOuter = new QVBoxLayout(binaryPage);
+    binaryOuter->setContentsMargins(0, 0, 0, 0);
+    binaryOuter->addWidget(binaryScroll);
+
+    m_tabs->addTab(packagePage, tr("包 (0)"));
+    m_tabs->addTab(binaryPage, tr("二进制 (0)"));
     layout->addWidget(m_tabs, 1);
 
     // ---- 状态栏 ----
@@ -89,41 +237,6 @@ void SearchPage::setupUi() {
 
     // 信号
     connect(m_searchEdit, &QLineEdit::returnPressed, this, &SearchPage::doSearch);
-}
-
-void SearchPage::setupTable(QTableWidget* table) {
-    table->setColumnCount(5);
-    table->setHorizontalHeaderLabels({tr("名称"), tr("版本"), tr("Bucket"), tr("描述"), tr("状态")});
-    table->horizontalHeader()->setStretchLastSection(true);
-    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
-    table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
-    table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
-    table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
-    table->setSelectionBehavior(QAbstractItemView::SelectRows);
-    table->setSelectionMode(QAbstractItemView::SingleSelection);
-    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    table->setContextMenuPolicy(Qt::CustomContextMenu);
-    table->verticalHeader()->setVisible(false);
-    table->setAlternatingRowColors(true);
-    table->setShowGrid(false);
-    table->setMouseTracking(true);
-    table->setFrameShape(QFrame::NoFrame);   // 去掉表格外框
-
-    connect(table, &QTableWidget::itemDoubleClicked, this, [this](QTableWidgetItem*) {
-        showPackageInfo();
-    });
-    connect(table, &QTableWidget::customContextMenuRequested, this,
-            [this, table](const QPoint& pos) {
-        QModelIndex idx = table->indexAt(pos);
-        if (!idx.isValid()) return;
-        table->selectRow(idx.row());
-        auto* menu = new QMenu(this);
-        menu->addAction(tr("查看信息"), this, [this]() { showPackageInfo(); });
-        menu->addAction(tr("安装"), this, [this]() { onInstallClicked(); });
-        menu->addAction(tr("卸载"), this, [this]() { onUninstallClicked(); });
-        menu->exec(table->viewport()->mapToGlobal(pos));
-    });
 }
 
 void SearchPage::doSearch() {
@@ -145,82 +258,67 @@ void SearchPage::onResultsReady(QVector<ScoopPackage> packages, bool isCold) {
             m_packageResults.append(pkg);
         }
     }
-    populateTable(m_packageTable, m_packageResults);
-    populateTable(m_binaryTable, m_binaryResults);
+    populateCards(m_packageLayout, m_packageResults);
+    populateCards(m_binaryLayout, m_binaryResults);
     m_tabs->setTabText(0, tr("包 (%1)").arg(m_packageResults.size()));
     m_tabs->setTabText(1, tr("二进制 (%1)").arg(m_binaryResults.size()));
     m_statusLabel->setText(tr("找到 %1 个结果").arg(m_packageResults.size() + m_binaryResults.size()));
 }
 
-void SearchPage::populateTable(QTableWidget* table, const QVector<ScoopPackage>& packages) {
-    table->setRowCount(packages.size());
-    for (int i = 0; i < packages.size(); ++i) {
-        const ScoopPackage& pkg = packages[i];
-        auto* nameItem = new QTableWidgetItem(pkg.name);
-        nameItem->setData(Qt::UserRole, pkg.name);
-        QFont nameFont = nameItem->font();
-        nameFont.setBold(true);
-        nameItem->setFont(nameFont);
-        table->setItem(i, 0, nameItem);
-        table->setItem(i, 1, new QTableWidgetItem(pkg.version));
-        table->setItem(i, 2, new QTableWidgetItem(pkg.source));
-        table->setItem(i, 3, new QTableWidgetItem(pkg.info.left(100)));
-        auto* statusItem = new QTableWidgetItem(pkg.is_installed ? tr("已安装") : tr("未安装"));
-        if (pkg.is_installed) {
-            statusItem->setForeground(Theme::installed(false));
-            statusItem->setFont([&]() {
-                QFont f = statusItem->font();
-                f.setBold(true);
-                return f;
-            }());
-        }
-        table->setItem(i, 4, statusItem);
+void SearchPage::populateCards(QVBoxLayout* layout, const QVector<ScoopPackage>& packages) {
+    if (!layout) return;
+    // 清空旧卡片
+    while (QLayoutItem* item = layout->takeAt(0)) {
+        if (QWidget* w = item->widget()) w->deleteLater();
+        delete item;
     }
-    table->clearSelection();
+    if (packages.isEmpty()) {
+        auto* empty = new QLabel(tr("无结果"), this);
+        empty->setAlignment(Qt::AlignCenter);
+        empty->setStyleSheet(QString("color:%1;padding:30px;")
+                                 .arg(Theme::textSub(false).name()));
+        layout->addWidget(empty);
+        return;
+    }
+    for (const auto& pkg : packages) {
+        auto* card = new SearchResultCard(pkg, this);
+        connect(card, &SearchResultCard::clicked, this, [this](const QString& name) {
+            showPackageInfo(name);
+        });
+        connect(card, &SearchResultCard::infoRequested, this, &SearchPage::showPackageInfo);
+        connect(card, &SearchResultCard::installRequested, this, &SearchPage::onInstallClicked);
+        connect(card, &SearchResultCard::uninstallRequested, this, &SearchPage::onUninstallClicked);
+        layout->addWidget(card);
+    }
 }
 
 void SearchPage::refreshInstalledState() {
-    for (int t = 0; t < 2; ++t) {
-        QTableWidget* table = (t == 0) ? m_packageTable : m_binaryTable;
-        for (int row = 0; row < table->rowCount(); ++row) {
-            QTableWidgetItem* item = table->item(row, 0);
-            if (!item) continue;
-            const QString name = item->data(Qt::UserRole).toString();
-            const QString appsDir = m_service->scoopAppsDir();
-            const bool inst = QFileInfo(appsDir + "/" + name).isDir();
-            QTableWidgetItem* status = table->item(row, 4);
-            if (status) {
-                status->setText(inst ? tr("已安装") : tr("未安装"));
-                if (inst) {
-                    status->setForeground(Theme::installed(false));
-                }
+    // 更新所有卡片的已安装状态
+    const QString appsDir = m_service->scoopAppsDir();
+    auto updateLayout = [this, &appsDir](QVBoxLayout* layout) {
+        if (!layout) return;
+        for (int i = 0; i < layout->count(); ++i) {
+            if (auto* card = qobject_cast<SearchResultCard*>(layout->itemAt(i)->widget())) {
+                const bool inst = QFileInfo(appsDir + "/" + card->packageName()).isDir();
+                card->setInstalled(inst);
             }
         }
-    }
+    };
+    updateLayout(m_packageLayout);
+    updateLayout(m_binaryLayout);
 }
 
-void SearchPage::showPackageInfo() {
-    QTableWidget* table = qobject_cast<QTableWidget*>(m_tabs->currentWidget());
-    if (!table) return;
-    int row = table->currentRow();
-    if (row < 0) return;
-    QTableWidgetItem* item = table->item(row, 0);
-    if (!item) return;
-    const QString name = item->data(Qt::UserRole).toString();
-
+void SearchPage::showPackageInfo(const QString& name) {
     PackageInfoDialog dlg(m_service, name, this);
     dlg.exec();
 }
 
-void SearchPage::onInstallClicked() {
-    QTableWidget* table = qobject_cast<QTableWidget*>(m_tabs->currentWidget());
-    if (!table) return;
-    int row = table->currentRow();
-    if (row < 0) return;
-    QTableWidgetItem* item = table->item(row, 0);
-    if (!item) return;
-    const QString name = item->data(Qt::UserRole).toString();
-
+void SearchPage::onInstallClicked(const QString& name) {
+    const QString appsDir = m_service->scoopAppsDir();
+    if (QFileInfo(appsDir + "/" + name).isDir()) {
+        QMessageBox::information(this, tr("已安装"), tr("\"%1\" 已安装。").arg(name));
+        return;
+    }
     QMessageBox::StandardButton res = QMessageBox::question(
         this, tr("安装"), tr("确定要安装 \"%1\" 吗？").arg(name));
     if (res == QMessageBox::Yes) {
@@ -228,15 +326,7 @@ void SearchPage::onInstallClicked() {
     }
 }
 
-void SearchPage::onUninstallClicked() {
-    QTableWidget* table = qobject_cast<QTableWidget*>(m_tabs->currentWidget());
-    if (!table) return;
-    int row = table->currentRow();
-    if (row < 0) return;
-    QTableWidgetItem* item = table->item(row, 0);
-    if (!item) return;
-    const QString name = item->data(Qt::UserRole).toString();
-
+void SearchPage::onUninstallClicked(const QString& name) {
     QMessageBox::StandardButton res = QMessageBox::question(
         this, tr("卸载"), tr("确定要卸载 \"%1\" 吗？").arg(name));
     if (res == QMessageBox::Yes) {
