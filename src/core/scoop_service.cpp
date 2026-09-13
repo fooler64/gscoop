@@ -240,6 +240,23 @@ QVector<ScoopPackage> ScoopService::searchImpl(const QString& query,
             result.append(pkg);
         }
     }
+
+    // 相关性排序：完全匹配 > 前缀匹配 > 子串匹配；同级内名称短者优先，再按字母序
+    std::sort(result.begin(), result.end(),
+              [&q](const ScoopPackage& a, const ScoopPackage& b) {
+        const QString na = a.name.toLower();
+        const QString nb = b.name.toLower();
+        auto rank = [&q](const QString& n) {
+            if (n == q) return 0;          // 完全匹配
+            if (n.startsWith(q)) return 1; // 前缀匹配
+            return 2;                      // 子串匹配
+        };
+        const int ra = rank(na);
+        const int rb = rank(nb);
+        if (ra != rb) return ra < rb;
+        if (na.length() != nb.length()) return na.length() < nb.length();
+        return na.compare(nb) < 0;
+    });
     return result;
 }
 
