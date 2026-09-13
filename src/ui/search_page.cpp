@@ -71,8 +71,9 @@ void SearchPage::setupUi() {
     searchRow->addWidget(searchWrap, 1);
     layout->addLayout(searchRow);
 
-    // ---- 结果 tabs ----
+    // ---- 结果 tabs（无边框，仿 rscoop）----
     m_tabs = new QTabWidget(this);
+    m_tabs->setDocumentMode(true);   // 扁平无边框 tab
     m_packageTable = new QTableWidget(this);
     m_binaryTable = new QTableWidget(this);
     setupTable(m_packageTable);
@@ -107,6 +108,7 @@ void SearchPage::setupTable(QTableWidget* table) {
     table->setAlternatingRowColors(true);
     table->setShowGrid(false);
     table->setMouseTracking(true);
+    table->setFrameShape(QFrame::NoFrame);   // 去掉表格外框
 
     connect(table, &QTableWidget::itemDoubleClicked, this, [this](QTableWidgetItem*) {
         showPackageInfo();

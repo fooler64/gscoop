@@ -192,7 +192,14 @@ void ModernStyle::drawPrimitive(PrimitiveElement element, const QStyleOption* op
         drawCheckBox(option, painter, widget);
         return;
     case PE_Frame:
-        drawLineEdit(option, painter, widget);
+        // 只对 QLineEdit 画圆角框；其他 QFrame（表格/tab 等）交给基类（无框）
+        if (qobject_cast<const QLineEdit*>(widget)) {
+            drawLineEdit(option, painter, widget);
+            return;
+        }
+        break;
+    case PE_FrameTabWidget:
+        // 去掉 QTabWidget 内容区外框（扁平，仿 rscoop）
         return;
     default:
         break;
