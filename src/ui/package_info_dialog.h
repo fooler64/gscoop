@@ -6,6 +6,7 @@ class QLabel;
 class QVBoxLayout;
 class QPushButton;
 class QScrollArea;
+class QMouseEvent;
 class ScoopService;
 
 // 包信息弹窗（复刻原版 PackageInfoModal）
@@ -21,12 +22,20 @@ private slots:
     void onUninstall();
     void onScanVirusTotal();
 
+protected:
+    // 无边框窗口拖动
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
+
 private:
     void fetchInfo();
     QString findManifest();
 
     ScoopService* m_service;
     QString m_name;
+    bool m_dragging = false;
+    QPoint m_dragOffset;
     QLabel* m_nameLabel = nullptr;
     QLabel* m_versionLabel = nullptr;
     QLabel* m_sourceLabel = nullptr;

@@ -15,6 +15,7 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QMessageBox>
+#include <QMouseEvent>
 
 #include "core/scoop_service.h"
 #include "core/theme_manager.h"
@@ -26,6 +27,8 @@ PackageInfoDialog::PackageInfoDialog(ScoopService* service, const QString& packa
     : QDialog(parent), m_service(service), m_name(packageName) {
     setWindowTitle(tr("包信息 - %1").arg(packageName));
     resize(540, 580);
+    // 去掉原生标题栏（顶部已有自绘标题栏含关闭按钮），避免双 ×
+    setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
 
     const bool dark = ThemeManager::instance().isDark();
 
@@ -146,6 +149,31 @@ PackageInfoDialog::PackageInfoDialog(ScoopService* service, const QString& packa
     connect(m_vtBtn, &QPushButton::clicked, this, &PackageInfoDialog::onScanVirusTotal);
 
     fetchInfo();
+}
+
+// 无边框窗口拖动（仅从标题栏区域拖动）
+void PackageInfoDialog::mousePressEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton && event->pos().y() <= 64) {
+        m_dragging = true;
+        m_dragOffset = event->globalPosition().toPoint() - frameGeometry().topLeft();
+        event->accept();
+        return;
+    }
+    QDialog::mousePressEvent(event);
+}
+
+void PackageInfoDialog::mouseMoveEvent(QMouseEvent* event) {
+    if (m_dragging && (event->buttons() & Qt::LeftButton)) {
+        move(event->globalPosition().toPoint() - m_dragOffset);
+        event->accept();
+        return;
+    }
+    QDialog::mouseMoveEvent(event);
+}
+
+void PackageInfoDialog::mouseReleaseEvent(QMouseEvent* event) {
+    m_dragging = false;
+    QDialog::mouseReleaseEvent(event);
 }
 
 QString PackageInfoDialog::findManifest() {

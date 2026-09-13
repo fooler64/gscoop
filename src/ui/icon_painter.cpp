@@ -401,6 +401,37 @@ QIcon download(const QColor& c, int size) {
     });
 }
 
+QIcon minimize(const QColor& c, int size) {
+    return makePixmap(size, [&c](QPainter& p, const QRectF& r) {
+        setupPen(p, c, r.width() * 0.1);
+        p.drawLine(QPointF(r.left() + r.width() * 0.15, r.center().y()),
+                   QPointF(r.right() - r.width() * 0.15, r.center().y()));
+    });
+}
+
+QIcon maximize(const QColor& c, int size) {
+    return makePixmap(size, [&c](QPainter& p, const QRectF& r) {
+        setupPen(p, c, r.width() * 0.1);
+        const QRectF box(r.left() + r.width() * 0.15, r.top() + r.height() * 0.18,
+                         r.width() * 0.7, r.height() * 0.64);
+        p.drawRoundedRect(box, 1, 1);
+    });
+}
+
+QIcon restore(const QColor& c, int size) {
+    return makePixmap(size, [&c](QPainter& p, const QRectF& r) {
+        setupPen(p, c, r.width() * 0.09);
+        // 前面方框（被遮挡部分）
+        const QRectF front(r.left() + r.width() * 0.3, r.top() + r.height() * 0.3,
+                           r.width() * 0.55, r.height() * 0.52);
+        p.drawRoundedRect(front, 1, 1);
+        // 后面方框
+        const QRectF back(r.left() + r.width() * 0.15, r.top() + r.height() * 0.15,
+                          r.width() * 0.55, r.height() * 0.52);
+        p.drawRoundedRect(back, 1, 1);
+    });
+}
+
 QIcon gear(const QColor& c, int size) {
     return makePixmap(size, [&c](QPainter& p, const QRectF& r) {
         p.setBrush(c);

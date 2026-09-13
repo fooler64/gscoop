@@ -31,6 +31,9 @@ QIcon info(const QColor& color, int size = 16);          // 信息 i
 QIcon downArrow(const QColor& c, int size);       // 向下箭头（更新可用标记）
 QIcon upArrow(const QColor& c, int size);         // 向上箭头
 QIcon download(const QColor& c, int size);        // 下载（箭头+托盘线）
+QIcon minimize(const QColor& c, int size);        // 最小化（横线）
+QIcon maximize(const QColor& c, int size);        // 最大化（方框）
+QIcon restore(const QColor& c, int size);         // 还原（双框）
 QIcon gear(const QColor& c, int size);            // 齿轮（设置）
 
 // 可更新徽标：小三角+数字（绘制在卡片右上）

@@ -15,6 +15,8 @@
 #include <QScreen>
 #include <QGuiApplication>
 #include <QShowEvent>
+#include <QMouseEvent>
+#include <QEvent>
 
 #include "core/scoop_service.h"
 #include "core/settings_store.h"
@@ -22,6 +24,7 @@
 #include "ui/animated_stack.h"
 #include "ui/activity_bar.h"
 #include "ui/theme.h"
+#include "ui/icon_painter.h"
 #include "ui/search_page.h"
 #include "ui/installed_page.h"
 #include "ui/bucket_page.h"
@@ -56,6 +59,9 @@ static void setDarkTitleBar(QWidget* w, bool dark) {
 
 MainWindow::MainWindow(ScoopService* service, QWidget* parent)
     : QMainWindow(parent), m_service(service) {
+    // 无边框窗口：使用自绘标题栏 + 自绘窗口按钮
+    setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+    setMouseTracking(true);
     setupUi();
     setupTray();
 
@@ -114,6 +120,45 @@ void MainWindow::setupUi() {
     auto* subLabel = new QLabel(tr("Scoop 包管理器 · 甘雨主题"), m_titleBar);
     titleLayout->addWidget(subLabel);
     titleLayout->addStretch();
+
+    // ---- 自绘窗口按钮（最小化/最大化/关闭）----
+    const int btnSize = 34;
+    const QColor btnIconColor = Theme::textSub(false);
+
+    m_minBtn = new QPushButton(m_titleBar);
+    m_minBtn->setIcon(IconPainter::minimize(btnIconColor, 14));
+    m_minBtn->setFixedSize(btnSize, btnSize);
+    m_minBtn->setFlat(true);
+    m_minBtn->setCursor(Qt::PointingHandCursor);
+    m_minBtn->setToolTip(tr("最小化"));
+    m_minBtn->setObjectName("winBtn");
+    titleLayout->addWidget(m_minBtn);
+
+    m_maxBtn = new QPushButton(m_titleBar);
+    m_maxBtn->setIcon(IconPainter::maximize(btnIconColor, 14));
+    m_maxBtn->setFixedSize(btnSize, btnSize);
+    m_maxBtn->setFlat(true);
+    m_maxBtn->setCursor(Qt::PointingHandCursor);
+    m_maxBtn->setToolTip(tr("最大化"));
+    m_maxBtn->setObjectName("winBtn");
+    titleLayout->addWidget(m_maxBtn);
+
+    m_closeBtn = new QPushButton(m_titleBar);
+    m_closeBtn->setIcon(IconPainter::close(btnIconColor, 14));
+    m_closeBtn->setFixedSize(btnSize, btnSize);
+    m_closeBtn->setFlat(true);
+    m_closeBtn->setCursor(Qt::PointingHandCursor);
+    m_closeBtn->setToolTip(tr("关闭"));
+    m_closeBtn->setObjectName("winCloseBtn");
+    titleLayout->addWidget(m_closeBtn);
+
+    // 窗口按钮 hover/点击样式（代码调色板）
+    connect(m_minBtn, &QPushButton::clicked, this, &MainWindow::onMinimizeClicked);
+    connect(m_maxBtn, &QPushButton::clicked, this, &MainWindow::onMaximizeClicked);
+    connect(m_closeBtn, &QPushButton::clicked, this, &MainWindow::onCloseClicked);
+    m_minBtn->installEventFilter(this);
+    m_maxBtn->installEventFilter(this);
+    m_closeBtn->installEventFilter(this);
 
     rightLayout->addWidget(m_titleBar);
 
@@ -245,6 +290,13 @@ void MainWindow::showEvent(QShowEvent* event) {
     QMainWindow::showEvent(event);
 }
 
+void MainWindow::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::WindowStateChange) {
+        updateMaximizeIcon();
+    }
+    QMainWindow::changeEvent(event);
+}
+
 void MainWindow::closeEvent(QCloseEvent* event) {
     const AppSettings& s = SettingsStore::instance().settings();
     if (!m_exiting && s.closeToTray && m_tray && m_tray->isVisible()) {
@@ -254,4 +306,95 @@ void MainWindow::closeEvent(QCloseEvent* event) {
         return;
     }
     event->accept();
+}
+
+// ===== 自绘窗口按钮 =====
+void MainWindow::onMinimizeClicked() {
+    showMinimized();
+}
+
+void MainWindow::onMaximizeClicked() {
+    if (isMaximized()) {
+        showNormal();
+    } else {
+        showMaximized();
+    }
+    updateMaximizeIcon();
+}
+
+void MainWindow::onCloseClicked() {
+    close();
+}
+
+void MainWindow::updateMaximizeIcon() {
+    if (!m_maxBtn) return;
+    const bool max = isMaximized();
+    const QColor c = Theme::textSub(false);
+    m_maxBtn->setIcon(max ? IconPainter::restore(c, 14)
+                          : IconPainter::maximize(c, 14));
+    m_maxBtn->setToolTip(max ? tr("还原") : tr("最大化"));
+}
+
+// 窗口按钮 hover/关闭 hover 背景（自绘，非 QSS）
+bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
+    const bool isWinBtn = (obj == m_minBtn || obj == m_maxBtn || obj == m_closeBtn);
+    if (isWinBtn) {
+        auto* btn = qobject_cast<QPushButton*>(obj);
+        if (!btn) return QMainWindow::eventFilter(obj, event);
+        if (event->type() == QEvent::Enter || event->type() == QEvent::Leave) {
+            const bool hover = (event->type() == QEvent::Enter);
+            const bool dark = ThemeManager::instance().isDark();
+            const bool isClose = (obj == m_closeBtn);
+            QColor bg;
+            if (hover) {
+                bg = isClose ? Theme::danger(dark) : Theme::highlight(dark);
+            } else {
+                bg = Qt::transparent;
+            }
+            QPalette pal = btn->palette();
+            pal.setColor(QPalette::Button, bg);
+            btn->setPalette(pal);
+            btn->setAutoFillBackground(hover);
+            return true;
+        }
+    }
+    return QMainWindow::eventFilter(obj, event);
+}
+
+// ===== 无边框窗口拖动 =====
+void MainWindow::mousePressEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton && event->pos().y() <= m_titleBar->height()) {
+        m_dragging = true;
+        m_dragOffset = event->globalPosition().toPoint() - frameGeometry().topLeft();
+        event->accept();
+        return;
+    }
+    QMainWindow::mousePressEvent(event);
+}
+
+void MainWindow::mouseMoveEvent(QMouseEvent* event) {
+    if (m_dragging && (event->buttons() & Qt::LeftButton)) {
+        if (isMaximized()) {
+            // 从最大化拖动时先还原（近似：直接还原到还原尺寸）
+            showNormal();
+        }
+        move(event->globalPosition().toPoint() - m_dragOffset);
+        event->accept();
+        return;
+    }
+    QMainWindow::mouseMoveEvent(event);
+}
+
+void MainWindow::mouseReleaseEvent(QMouseEvent* event) {
+    m_dragging = false;
+    QMainWindow::mouseReleaseEvent(event);
+}
+
+void MainWindow::mouseDoubleClickEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton && event->pos().y() <= m_titleBar->height()) {
+        onMaximizeClicked();
+        event->accept();
+        return;
+    }
+    QMainWindow::mouseDoubleClickEvent(event);
 }
