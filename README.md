@@ -29,7 +29,6 @@
 
 | 版本 | 说明 |
 |------|------|
-| `gScoop-x.y.z-win64-single.exe` | 单文件自解压版（内嵌 DLL，解压到临时目录运行） |
 | `gScoop-x.y.z-win64.zip` | 便携压缩版（解压后直接运行 `gscoop.exe`） |
 
 ## 🚀 使用
