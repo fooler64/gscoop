@@ -80,39 +80,21 @@ void MainWindow::setupUi() {
     resize(1180, 740);
     setMinimumSize(900, 580);
 
-    // ===== VSCode 风格布局：活动栏 | (标题栏 + 内容) =====
-    auto* rootLayout = new QHBoxLayout;
+    // ===== 布局：顶部通栏标题栏 + (活动栏 | 内容) =====
+    auto* rootLayout = new QVBoxLayout;
     rootLayout->setContentsMargins(0, 0, 0, 0);
     rootLayout->setSpacing(0);
 
-    // ---- 左侧活动栏 ----
-    auto* activityBar = new ActivityBar(this);
-    m_navButtons.append(activityBar->addItem(QString::fromUtf8("🔍"), tr("搜索")));   // 0
-    m_navButtons.append(activityBar->addItem(QString::fromUtf8("📦"), tr("已安装"))); // 1
-    m_navButtons.append(activityBar->addItem(QString::fromUtf8("🗂️"), tr("Bucket"))); // 2
-    m_navButtons.append(activityBar->addItem(QString::fromUtf8("⚙️"), tr("设置")));   // 3
-    rootLayout->addWidget(activityBar);
-
-    connect(activityBar, &ActivityBar::itemClicked, this,
-            [this](int idx) { navigateTo(idx, true); });
-    m_activityBar = activityBar;
-
-    // ---- 右侧主体（标题栏 + 页面）----
-    auto* rightSide = new QWidget(this);
-    auto* rightLayout = new QVBoxLayout(rightSide);
-    rightLayout->setContentsMargins(0, 0, 0, 0);
-    rightLayout->setSpacing(0);
-
-    // 顶部标题栏（VSCode 风格：窄条 + 标题）
-    m_titleBar = new QFrame(rightSide);
-    m_titleBar->setFixedHeight(44);
+    // ---- 顶部通栏标题栏（gScoop 在最左上，窗口按钮在最右）----
+    m_titleBar = new QFrame(this);
+    m_titleBar->setFixedHeight(48);
     auto* titleLayout = new QHBoxLayout(m_titleBar);
-    titleLayout->setContentsMargins(20, 0, 20, 0);
+    titleLayout->setContentsMargins(16, 0, 8, 0);
     titleLayout->setSpacing(10);
 
     auto* titleLabel = new QLabel(tr("gScoop"), m_titleBar);
     QFont tf = titleLabel->font();
-    tf.setPointSize(13);
+    tf.setPointSize(14);
     tf.setBold(true);
     titleLabel->setFont(tf);
     titleLayout->addWidget(titleLabel);
@@ -122,7 +104,7 @@ void MainWindow::setupUi() {
     titleLayout->addStretch();
 
     // ---- 自绘窗口按钮（最小化/最大化/关闭）----
-    const int btnSize = 34;
+    const int btnSize = 36;
     const QColor btnIconColor = Theme::textSub(false);
 
     m_minBtn = new QPushButton(m_titleBar);
@@ -160,10 +142,27 @@ void MainWindow::setupUi() {
     m_maxBtn->installEventFilter(this);
     m_closeBtn->installEventFilter(this);
 
-    rightLayout->addWidget(m_titleBar);
+    rootLayout->addWidget(m_titleBar);
 
-    // 页面堆栈
-    m_stack = new AnimatedStackedWidget(rightSide);
+    // ---- 下方：活动栏 | 内容区 ----
+    auto* bodyLayout = new QHBoxLayout;
+    bodyLayout->setContentsMargins(0, 0, 0, 0);
+    bodyLayout->setSpacing(0);
+
+    // 左侧活动栏
+    auto* activityBar = new ActivityBar(this);
+    m_navButtons.append(activityBar->addItem(QString::fromUtf8("🔍"), tr("搜索")));   // 0
+    m_navButtons.append(activityBar->addItem(QString::fromUtf8("📦"), tr("已安装"))); // 1
+    m_navButtons.append(activityBar->addItem(QString::fromUtf8("🗂️"), tr("Bucket"))); // 2
+    m_navButtons.append(activityBar->addItem(QString::fromUtf8("⚙️"), tr("设置")));   // 3
+    bodyLayout->addWidget(activityBar);
+
+    connect(activityBar, &ActivityBar::itemClicked, this,
+            [this](int idx) { navigateTo(idx, true); });
+    m_activityBar = activityBar;
+
+    // 右侧内容（页面堆栈）
+    m_stack = new AnimatedStackedWidget(this);
     m_searchPage = new SearchPage(m_service, this);
     m_bucketPage = new BucketPage(m_service, this);
     m_installedPage = new InstalledPage(m_service, this);
@@ -174,8 +173,8 @@ void MainWindow::setupUi() {
     m_stack->addWidget(m_installedPage);   // 2
     m_stack->addWidget(m_settingsPage);    // 3
 
-    rightLayout->addWidget(m_stack, 1);
-    rootLayout->addWidget(rightSide, 1);
+    bodyLayout->addWidget(m_stack, 1);
+    rootLayout->addLayout(bodyLayout, 1);
 
     auto* central = new QWidget(this);
     central->setLayout(rootLayout);
