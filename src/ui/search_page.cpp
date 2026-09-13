@@ -18,6 +18,7 @@
 #include "core/scoop_service.h"
 #include "ui/package_info_dialog.h"
 #include "ui/theme.h"
+#include "ui/icon_painter.h"
 
 SearchPage::SearchPage(ScoopService* service, QWidget* parent)
     : QWidget(parent), m_service(service) {
@@ -41,28 +42,31 @@ void SearchPage::setupUi() {
     title->setObjectName("sectionTitle");
     layout->addWidget(title);
 
-    // ---- 搜索栏（现代化大搜索框）----
+    // ---- 搜索栏（仿 rscoop：左侧放大镜图标，右侧清除按钮，无边框底色）----
     auto* searchRow = new QHBoxLayout;
     searchRow->setSpacing(10);
 
+    // 搜索容器（圆角底色，无边框，仿 rscoop bg-base-400）
     auto* searchWrap = new QFrame(this);
     searchWrap->setObjectName("card");
     auto* searchWrapLayout = new QHBoxLayout(searchWrap);
-    searchWrapLayout->setContentsMargins(6, 6, 6, 6);
+    searchWrapLayout->setContentsMargins(12, 6, 12, 6);
     searchWrapLayout->setSpacing(8);
+    searchWrap->setAutoFillBackground(true);
+
+    // 左侧放大镜图标（自绘）
+    auto* searchIcon = new QLabel(searchWrap);
+    searchIcon->setPixmap(IconPainter::search(Theme::textSub(false), 18).pixmap(18, 18));
+    searchWrapLayout->addWidget(searchIcon);
 
     m_searchEdit = new QLineEdit(searchWrap);
     m_searchEdit->setPlaceholderText(tr("搜索包名、描述、二进制..."));
-    m_searchEdit->setMinimumHeight(42);
+    m_searchEdit->setMinimumHeight(38);
     m_searchEdit->setClearButtonEnabled(true);
     m_searchEdit->setFont(QFont(m_searchEdit->font().family(), 11));
+    m_searchEdit->setFrame(false);   // 无边框，仿 rscoop
+    m_searchEdit->setStyleSheet(QString("background:transparent;"));
     searchWrapLayout->addWidget(m_searchEdit, 1);
-
-    m_searchBtn = new QPushButton(tr("搜索"), searchWrap);
-    m_searchBtn->setProperty("primaryBtn", true);
-    m_searchBtn->setMinimumHeight(42);
-    m_searchBtn->setMinimumWidth(96);
-    searchWrapLayout->addWidget(m_searchBtn);
 
     searchRow->addWidget(searchWrap, 1);
     layout->addLayout(searchRow);
@@ -83,7 +87,6 @@ void SearchPage::setupUi() {
     layout->addWidget(m_statusLabel);
 
     // 信号
-    connect(m_searchBtn, &QPushButton::clicked, this, &SearchPage::doSearch);
     connect(m_searchEdit, &QLineEdit::returnPressed, this, &SearchPage::doSearch);
 }
 

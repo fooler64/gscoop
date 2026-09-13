@@ -108,6 +108,83 @@ void BucketCard::paintEvent(QPaintEvent* event) {
     p.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 8, 8);
 }
 
+// ==================== InstalledBucketCard ====================
+InstalledBucketCard::InstalledBucketCard(const BucketInfo& bucket, QWidget* parent)
+    : QFrame(parent), m_bucket(bucket) {
+    setCursor(Qt::PointingHandCursor);
+    setMinimumHeight(64);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    setToolTip(m_bucket.git_url);
+
+    // 内部布局：名称 + manifest 数 + URL
+    auto* lay = new QVBoxLayout(this);
+    lay->setContentsMargins(14, 10, 14, 10);
+    lay->setSpacing(3);
+
+    const bool dark = ThemeManager::instance().isDark();
+
+    auto* nameRow = new QHBoxLayout;
+    auto* nameLbl = new QLabel(m_bucket.name, this);
+    QFont nf = nameLbl->font();
+    nf.setBold(true);
+    nf.setPointSizeF(nf.pointSizeF() + 0.5);
+    nameLbl->setFont(nf);
+    nameLbl->setStyleSheet(QString("color:%1;").arg(Theme::text(dark).name()));
+    nameRow->addWidget(nameLbl);
+
+    auto* countLbl = new QLabel(tr("%1 manifests").arg(m_bucket.manifest_count), this);
+    countLbl->setStyleSheet(QString("color:%1;font-size:11px;").arg(Theme::success(dark).name()));
+    nameRow->addWidget(countLbl);
+    nameRow->addStretch();
+
+    // 删除图标（右上角，自绘）
+    auto* trashBtn = new QLabel(this);
+    trashBtn->setPixmap(IconPainter::trash(Theme::textSub(dark), 14).pixmap(14, 14));
+    trashBtn->setToolTip(tr("删除此 bucket"));
+    nameRow->addWidget(trashBtn);
+
+    lay->addLayout(nameRow);
+
+    auto* urlLbl = new QLabel(m_bucket.git_url.isEmpty() ? m_bucket.path : m_bucket.git_url, this);
+    QFont uf = urlLbl->font();
+    uf.setPointSizeF(uf.pointSizeF() - 1.5);
+    urlLbl->setFont(uf);
+    urlLbl->setStyleSheet(QString("color:%1;").arg(Theme::textSub(dark).name()));
+    urlLbl->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    lay->addWidget(urlLbl);
+}
+
+void InstalledBucketCard::mousePressEvent(QMouseEvent* event) {
+    Q_UNUSED(event);
+    emit clicked(m_bucket.name);
+    QFrame::mousePressEvent(event);
+}
+
+void InstalledBucketCard::enterEvent(QEnterEvent* event) {
+    m_hover = true;
+    update();
+    QFrame::enterEvent(event);
+}
+
+void InstalledBucketCard::leaveEvent(QEvent* event) {
+    m_hover = false;
+    update();
+    QFrame::leaveEvent(event);
+}
+
+void InstalledBucketCard::paintEvent(QPaintEvent* event) {
+    Q_UNUSED(event);
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    const bool dark = ThemeManager::instance().isDark();
+    // 圆角无边框：bg=surface3（比页面背景深一档，卡片感更强），hover 时 blend accent
+    QColor bg = Theme::surface3(dark);
+    if (m_hover) bg = Theme::blend(bg, Theme::accent(dark), 0.1);
+    p.setPen(Qt::NoPen);
+    p.setBrush(bg);
+    p.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 10, 10);
+}
+
 BucketPage::BucketPage(ScoopService* service, QWidget* parent)
     : QWidget(parent), m_service(service) {
     setupUi();
@@ -201,9 +278,17 @@ void BucketPage::setupUi() {
     m_countLabel = new QLabel(tr("0 个"), this);
     layout->addWidget(m_countLabel);
 
-    m_list = new QListWidget(this);
-    m_list->setContextMenuPolicy(Qt::CustomContextMenu);
-    layout->addWidget(m_list, 1);
+    // 已安装 buckets 卡片网格（滚动区域）
+    m_installedScroll = new QScrollArea(this);
+    m_installedScroll->setWidgetResizable(true);
+    m_installedScroll->setFrameShape(QFrame::NoFrame);
+    m_installedHost = new QWidget(m_installedScroll);
+    m_installedLayout = new QGridLayout(m_installedHost);
+    m_installedLayout->setContentsMargins(0, 0, 0, 0);
+    m_installedLayout->setSpacing(10);
+    m_installedLayout->setAlignment(Qt::AlignTop);
+    m_installedScroll->setWidget(m_installedHost);
+    layout->addWidget(m_installedScroll, 1);
 
     m_removeBtn = new QPushButton(tr("删除选中 Bucket"), this);
     layout->addWidget(m_removeBtn, 0, Qt::AlignRight);
@@ -215,13 +300,6 @@ void BucketPage::setupUi() {
     connect(m_refreshBtn, &QPushButton::clicked, this, &BucketPage::onRefreshClicked);
     connect(m_addBtn, &QPushButton::clicked, this, &BucketPage::onAddBucketClicked);
     connect(m_exploreBtn, &QPushButton::clicked, this, &BucketPage::onExploreClicked);
-    connect(m_list, &QListWidget::customContextMenuRequested, this,
-            [this](const QPoint& pos) {
-        if (!m_list->itemAt(pos)) return;
-        auto* menu = new QMenu(this);
-        menu->addAction(tr("删除"), this, [this]() { onRemoveBucket(); });
-        menu->exec(m_list->viewport()->mapToGlobal(pos));
-    });
 
     // 默认镜像
     m_mirror.clear();
@@ -276,14 +354,26 @@ void BucketPage::onBucketsLoaded(QVector<BucketInfo> buckets) {
 }
 
 void BucketPage::populateInstalledList(const QVector<BucketInfo>& buckets) {
-    m_list->clear();
-    for (const BucketInfo& b : buckets) {
-        QString text = QString("%1  (%2 manifests)").arg(b.name).arg(b.manifest_count);
-        if (!b.git_url.isEmpty()) text += tr("  [%1]").arg(b.git_url);
-        auto* item = new QListWidgetItem(text);
-        item->setData(Qt::UserRole, b.name);
-        m_list->addItem(item);
+    if (!m_installedLayout) return;
+    // 清空旧卡片
+    while (QLayoutItem* item = m_installedLayout->takeAt(0)) {
+        if (QWidget* w = item->widget()) w->deleteLater();
+        delete item;
     }
+
+    const int cols = qMax(1, 2);
+    for (int i = 0; i < buckets.size(); ++i) {
+        auto* card = new InstalledBucketCard(buckets[i], m_installedHost);
+        QObject::connect(card, &InstalledBucketCard::clicked, this,
+                         [this](const QString& name) {
+            // 点击卡片 → 直接请求删除
+            m_pendingRemove = name;
+            onRemoveBucket();
+        });
+        m_installedLayout->addWidget(card, i / cols, i % cols);
+    }
+    m_installedLayout->setColumnStretch(cols - 1, 1);
+    m_installedHost->updateGeometry();
 }
 
 void BucketPage::onAddPreset(const QString& name, const QString& url) {
@@ -296,15 +386,15 @@ void BucketPage::onAddPreset(const QString& name, const QString& url) {
 }
 
 void BucketPage::onRemoveBucket() {
-    QListWidgetItem* item = m_list->currentItem();
-    if (!item) {
+    const QString name = m_pendingRemove;
+    if (name.isEmpty()) {
         QMessageBox::information(this, tr("提示"), tr("请先选择一个 bucket。"));
         return;
     }
-    const QString name = item->data(Qt::UserRole).toString();
     QMessageBox::StandardButton res = QMessageBox::question(
         this, tr("删除 Bucket"), tr("确定要删除 bucket \"%1\" 吗？").arg(name));
     if (res == QMessageBox::Yes) m_service->removeBucket(name);
+    m_pendingRemove.clear();
 }
 
 void BucketPage::onRefreshClicked() {

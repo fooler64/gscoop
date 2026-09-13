@@ -37,7 +37,6 @@ private:
 
     ScoopService* m_service;
     QLineEdit* m_searchEdit = nullptr;
-    QPushButton* m_searchBtn = nullptr;
     QTabWidget* m_tabs = nullptr;
     QTableWidget* m_packageTable = nullptr;
     QTableWidget* m_binaryTable = nullptr;

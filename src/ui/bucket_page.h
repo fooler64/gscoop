@@ -13,6 +13,7 @@ class QLineEdit;
 class QComboBox;
 class QGridLayout;
 class QVBoxLayout;
+class QScrollArea;
 class QMouseEvent;
 class QPaintEvent;
 class QEnterEvent;
@@ -49,6 +50,26 @@ private:
     bool m_hover = false;
 };
 
+// 已安装 bucket 卡片：圆角无边框，显示名称 + manifest 数，hover 高亮，点击=删除
+class InstalledBucketCard : public QFrame {
+    Q_OBJECT
+public:
+    InstalledBucketCard(const BucketInfo& bucket, QWidget* parent = nullptr);
+
+signals:
+    void clicked(const QString& name);   // 点击卡片 → 请求删除
+
+protected:
+    void mousePressEvent(QMouseEvent* event) override;
+    void enterEvent(QEnterEvent* event) override;
+    void leaveEvent(QEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
+
+private:
+    BucketInfo m_bucket;
+    bool m_hover = false;
+};
+
 // Bucket 页：预置常用 buckets 网格 + 一键添加 + 国内镜像切换
 class BucketPage : public QWidget {
     Q_OBJECT
@@ -76,8 +97,10 @@ private:
     QString mirrorUrl(const QString& githubUrl) const;
 
     ScoopService* m_service;
-    // 已安装 buckets
-    QListWidget* m_list = nullptr;
+    // 已安装 buckets（卡片网格）
+    QScrollArea* m_installedScroll = nullptr;
+    QWidget* m_installedHost = nullptr;
+    QGridLayout* m_installedLayout = nullptr;
     QLabel* m_countLabel = nullptr;
     QPushButton* m_removeBtn = nullptr;
     QPushButton* m_refreshBtn = nullptr;
@@ -92,5 +115,6 @@ private:
     QVector<BucketInfo> m_buckets;
     QSet<QString> m_installedNames;
     QString m_mirror;   // 当前镜像前缀
+    QString m_pendingRemove;  // 待删除 bucket 名（点击卡片）
     bool m_loaded = false;
 };
