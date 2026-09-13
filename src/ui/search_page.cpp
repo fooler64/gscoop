@@ -29,9 +29,16 @@
 SearchResultCard::SearchResultCard(const ScoopPackage& pkg, QWidget* parent)
     : QFrame(parent), m_pkg(pkg) {
     setCursor(Qt::PointingHandCursor);
-    setMinimumHeight(64);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     setToolTip(pkg.info);
+    // 高度按简介自适应：无描述 64px，有描述按行数增加
+    int descLines = 0;
+    if (!pkg.info.isEmpty()) {
+        // 估算行数：约 48 个字符一行
+        descLines = qMax(1, int(pkg.info.length() / 44.0));
+    }
+    setMinimumHeight(64 + descLines * 18);
+    setMaximumHeight(64 + descLines * 18);
 }
 
 void SearchResultCard::setInstalled(bool installed) {
@@ -82,8 +89,9 @@ void SearchResultCard::paintEvent(QPaintEvent* event) {
 
     const qreal w = width();
     const qreal h = height();
+    const int rightMargin = 90;   // 给右侧下载箭头留空间
 
-    // 状态徽标（右侧）
+    // 状态徽标（右上角）
     if (m_pkg.is_installed) {
         const int bw = 52, bh = 18;
         const QRect badge(int(w) - bw - 12, 8, bw, bh);
@@ -96,6 +104,12 @@ void SearchResultCard::paintEvent(QPaintEvent* event) {
         bf.setBold(true);
         p.setFont(bf);
         p.drawText(badge, Qt::AlignCenter, tr("已安装"));
+    } else {
+        // 未安装：显示下载箭头（右侧）
+        const int iconSize = 22;
+        const QRect iconRect(int(w) - iconSize - 14, (int(h) - iconSize) / 2, iconSize, iconSize);
+        const QColor iconColor = m_hover ? Theme::accent(dark) : Theme::textSub(dark);
+        p.drawPixmap(iconRect, IconPainter::download(iconColor, iconSize).pixmap(iconSize, iconSize));
     }
 
     // 名称（加粗）
@@ -104,7 +118,7 @@ void SearchResultCard::paintEvent(QPaintEvent* event) {
     nameFont.setBold(true);
     p.setFont(nameFont);
     p.setPen(Theme::text(dark));
-    const QRect nameRect(14, 8, int(w) - 100, 22);
+    const QRect nameRect(14, 8, int(w) - rightMargin - 10, 22);
     p.drawText(nameRect, Qt::AlignLeft | Qt::AlignVCenter,
                QFontMetrics(nameFont).elidedText(m_pkg.name, Qt::ElideRight, nameRect.width()));
 
@@ -114,19 +128,35 @@ void SearchResultCard::paintEvent(QPaintEvent* event) {
     p.setFont(subFont);
     p.setPen(Theme::textSub(dark));
     const QString sub = QString("%1 · %2").arg(m_pkg.version, m_pkg.source);
-    const QRect subRect(14, 32, int(w) - 100, 16);
+    const QRect subRect(14, 30, int(w) - rightMargin - 10, 16);
     p.drawText(subRect, Qt::AlignLeft | Qt::AlignVCenter,
                QFontMetrics(subFont).elidedText(sub, Qt::ElideRight, subRect.width()));
 
-    // 描述
+    // 描述（最多 2 行，按卡片高度）
     if (!m_pkg.info.isEmpty()) {
         QFont descFont = font();
         descFont.setPointSizeF(descFont.pointSizeF() - 1.0);
         p.setFont(descFont);
         p.setPen(Theme::textSub(dark));
-        const QRect descRect(14, 48, int(w) - 28, 16);
-        p.drawText(descRect, Qt::AlignLeft | Qt::AlignVCenter,
-                   QFontMetrics(descFont).elidedText(m_pkg.info, Qt::ElideRight, descRect.width()));
+        const QRect descRect(14, 48, int(w) - rightMargin - 10, int(h) - 52);
+        // 手动换行绘制（最多 2 行）
+        const QStringList words = m_pkg.info.split(' ', Qt::SkipEmptyParts);
+        QString line1, line2;
+        for (const QString& word : words) {
+            const QString test = line1.isEmpty() ? word : line1 + " " + word;
+            if (QFontMetrics(descFont).horizontalAdvance(test) < descRect.width()) {
+                line1 = test;
+            } else {
+                line2 = (line2.isEmpty() ? word : line2 + " " + word);
+            }
+        }
+        p.drawText(QRect(descRect.left(), descRect.top(), descRect.width(), 16),
+                   Qt::AlignLeft | Qt::AlignVCenter, line1);
+        if (!line2.isEmpty()) {
+            p.drawText(QRect(descRect.left(), descRect.top() + 18, descRect.width(), 16),
+                       Qt::AlignLeft | Qt::AlignVCenter,
+                       QFontMetrics(descFont).elidedText(line2, Qt::ElideRight, descRect.width()));
+        }
     }
 }
 
@@ -164,18 +194,17 @@ void SearchPage::setupUi() {
     searchWrapLayout->setSpacing(10);
     searchWrap->setAutoFillBackground(true);
 
-    // 搜索容器背景：用 accentDim（冰蓝中调，突出搜索框）
+    // 搜索容器背景：与页面统一（surface2），不做突出区分（结果卡片才用深色）
+    const bool dark = ThemeManager::instance().isDark();
     {
-        const bool dark = ThemeManager::instance().isDark();
         QPalette sp = searchWrap->palette();
-        sp.setColor(QPalette::Window, Theme::accentDim(dark));
+        sp.setColor(QPalette::Window, Theme::surface2(dark));
         searchWrap->setPalette(sp);
     }
 
-    // 左侧放大镜图标（自绘，用深色以在浅色底上可见）
+    // 左侧放大镜图标（自绘，浅色）
     auto* searchIcon = new QLabel(searchWrap);
-    const bool dark = ThemeManager::instance().isDark();
-    searchIcon->setPixmap(IconPainter::search(Theme::text(dark), 18).pixmap(18, 18));
+    searchIcon->setPixmap(IconPainter::search(Theme::textSub(dark), 18).pixmap(18, 18));
     searchWrapLayout->addWidget(searchIcon);
 
     m_searchEdit = new QLineEdit(searchWrap);

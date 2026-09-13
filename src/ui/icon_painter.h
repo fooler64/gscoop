@@ -28,9 +28,10 @@ QIcon bug(const QColor& color, int size = 16);           // bug（doctor/自检�
 QIcon broom(const QColor& color, int size = 16);         // 扫帚（清理）
 QIcon shield(const QColor& color, int size = 16);        // 盾牌（virustotal/安全）
 QIcon info(const QColor& color, int size = 16);          // 信息 i
-QIcon downArrow(const QColor& color, int size = 16);     // 向下箭头（更新可用标记）
-QIcon upArrow(const QColor& color, int size = 16);       // 向上箭头
-QIcon gear(const QColor& color, int size = 16);          // 齿轮（设置）
+QIcon downArrow(const QColor& c, int size);       // 向下箭头（更新可用标记）
+QIcon upArrow(const QColor& c, int size);         // 向上箭头
+QIcon download(const QColor& c, int size);        // 下载（箭头+托盘线）
+QIcon gear(const QColor& c, int size);            // 齿轮（设置）
 
 // 可更新徽标：小三角+数字（绘制在卡片右上）
 void paintUpdateBadge(QPainter& p, const QRect& rect, const QColor& color);

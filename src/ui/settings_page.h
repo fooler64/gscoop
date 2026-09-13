@@ -11,19 +11,21 @@ class QLineEdit;
 class QLabel;
 class QGroupBox;
 class QListWidget;
-class QStackedWidget;
 class QVBoxLayout;
 class QScrollArea;
 class QPushButton;
 class QPaintEvent;
 class QMouseEvent;
+class AnimatedStackedWidget;
 class ScoopService;
 
-// 设置页左侧标签按钮（自绘：圆角、选中高亮）
+// 设置页左侧标签按钮（自绘：圆角、选中高亮，带颜色过渡动画）
 class SettingsTabButton : public QFrame {
     Q_OBJECT
 public:
     SettingsTabButton(const QString& text, const QString& icon, QWidget* parent = nullptr);
+    // 选中状态（平滑过渡）
+    void setActive(bool active);
 
 signals:
     void clicked(int index);
@@ -35,6 +37,7 @@ protected:
 private:
     QString m_text;
     QString m_icon;
+    double m_activeProgress = 0.0;   // 0=未选中 1=选中（动画插值）
 };
 
 // 设置页（现代化：左侧标签导航 + 右侧内容区）
@@ -66,7 +69,7 @@ private:
 
     ScoopService* m_service;
     QListWidget* m_tabList = nullptr;
-    QStackedWidget* m_stack = nullptr;
+    AnimatedStackedWidget* m_stack = nullptr;
 
     // 自动化
     QCheckBox* m_autoUpdateCheck = nullptr;

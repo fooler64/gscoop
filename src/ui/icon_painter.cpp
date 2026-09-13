@@ -380,6 +380,27 @@ QIcon upArrow(const QColor& c, int size) {
     });
 }
 
+QIcon download(const QColor& c, int size) {
+    return makePixmap(size, [&c](QPainter& p, const QRectF& r) {
+        setupPen(p, c, r.width() * 0.09);
+        // 竖线（箭头杆）
+        p.drawLine(QPointF(r.center().x(), r.top() + r.height() * 0.1),
+                   QPointF(r.center().x(), r.top() + r.height() * 0.55));
+        // 箭头三角
+        QPolygonF tri;
+        tri << QPointF(r.left() + r.width() * 0.2, r.top() + r.height() * 0.45)
+            << QPointF(r.right() - r.width() * 0.2, r.top() + r.height() * 0.45)
+            << QPointF(r.center().x(), r.top() + r.height() * 0.75);
+        p.setBrush(c);
+        p.setPen(Qt::NoPen);
+        p.drawPolygon(tri);
+        // 托盘底线
+        setupPen(p, c, r.width() * 0.09);
+        p.drawLine(QPointF(r.left() + r.width() * 0.15, r.bottom() - r.height() * 0.12),
+                   QPointF(r.right() - r.width() * 0.15, r.bottom() - r.height() * 0.12));
+    });
+}
+
 QIcon gear(const QColor& c, int size) {
     return makePixmap(size, [&c](QPainter& p, const QRectF& r) {
         p.setBrush(c);

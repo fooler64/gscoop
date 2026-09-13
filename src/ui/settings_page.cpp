@@ -10,7 +10,6 @@
 #include <QLabel>
 #include <QScrollArea>
 #include <QListWidget>
-#include <QStackedWidget>
 #include <QPainter>
 #include <QPen>
 #include <QPushButton>
@@ -20,12 +19,14 @@
 #include <QFuture>
 #include <QFutureWatcher>
 #include <QLayoutItem>
+#include <QVariantAnimation>
 
 #include "core/scoop_service.h"
 #include "core/settings_store.h"
 #include "core/theme_manager.h"
 #include "ui/theme.h"
 #include "ui/icon_painter.h"
+#include "ui/animated_stack.h"
 #include "ui/doctor_page.h"   // DoctorItemCard
 
 // ==================== SettingsTabButton ====================
@@ -33,6 +34,21 @@ SettingsTabButton::SettingsTabButton(const QString& text, const QString& icon, Q
     : QFrame(parent), m_text(text), m_icon(icon) {
     setCursor(Qt::PointingHandCursor);
     setFixedHeight(42);
+}
+
+void SettingsTabButton::setActive(bool active) {
+    // 平滑过渡到目标状态
+    auto* anim = new QVariantAnimation(this);
+    anim->setDuration(160);
+    anim->setStartValue(m_activeProgress);
+    anim->setEndValue(active ? 1.0 : 0.0);
+    anim->setEasingCurve(QEasingCurve::OutCubic);
+    connect(anim, &QVariantAnimation::valueChanged, this, [this](const QVariant& v) {
+        m_activeProgress = v.toDouble();
+        update();
+    });
+    connect(anim, &QVariantAnimation::finished, anim, &QObject::deleteLater);
+    anim->start();
 }
 
 void SettingsTabButton::mousePressEvent(QMouseEvent* event) {
@@ -46,20 +62,24 @@ void SettingsTabButton::paintEvent(QPaintEvent* event) {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
     const bool dark = ThemeManager::instance().isDark();
-    const bool active = property("active").toBool();
     const bool hover = underMouse();
 
-    // 背景
+    // 背景：active 插值 active色 / hover 高亮
     QColor bg;
-    if (active) bg = Theme::active(dark);
-    else if (hover) bg = Theme::highlight(dark);
-    else bg = Qt::transparent;
+    if (m_activeProgress > 0.01) {
+        bg = Theme::blend(Theme::highlight(dark), Theme::active(dark), m_activeProgress);
+    } else if (hover) {
+        bg = Theme::highlight(dark);
+    } else {
+        bg = Qt::transparent;
+    }
 
-    if (active) {
-        // 左侧指示条
+    // 左侧指示条（宽度随进度生长）
+    if (m_activeProgress > 0.01) {
         p.setPen(Qt::NoPen);
         p.setBrush(Theme::accent(dark));
-        p.drawRoundedRect(QRect(0, 8, 4, height() - 16), 2, 2);
+        const int barW = qMax(2, int(4 * m_activeProgress));
+        p.drawRoundedRect(QRect(0, 8, barW, height() - 16), 2, 2);
     }
 
     p.setPen(Qt::NoPen);
@@ -74,12 +94,13 @@ void SettingsTabButton::paintEvent(QPaintEvent* event) {
     const QRect iconRect(14, 0, 28, height());
     p.drawText(iconRect, Qt::AlignLeft | Qt::AlignVCenter, m_icon);
 
-    // 文字
+    // 文字（选中时加粗，颜色过渡）
     QFont textFont = font();
     textFont.setPointSize(10);
-    textFont.setBold(active);
+    textFont.setBold(m_activeProgress > 0.5);
     p.setFont(textFont);
-    p.setPen(active ? Theme::text(dark) : Theme::textSub(dark));
+    const QColor textColor = Theme::blend(Theme::textSub(dark), Theme::text(dark), m_activeProgress);
+    p.setPen(textColor);
     const QRect textRect(44, 0, width() - 52, height());
     p.drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, m_text);
 }
@@ -145,15 +166,16 @@ void SettingsPage::setupUi() {
         item->setData(Qt::UserRole, i);
         auto* btn = new SettingsTabButton(kTabs[i].label, kTabs[i].icon, m_tabList);
         btn->setProperty("tabIndex", i);
-        btn->setProperty("active", i == 0);
+        btn->setActive(i == 0);
         connect(btn, &SettingsTabButton::clicked, this, &SettingsPage::onTabChanged);
         m_tabList->setItemWidget(item, btn);
     }
     m_tabList->setCurrentRow(0);
     outer->addWidget(m_tabList);
 
-    // ---- 右侧内容区 ----
-    m_stack = new QStackedWidget(this);
+    // ---- 右侧内容区（带切换动画）----
+    m_stack = new AnimatedStackedWidget(this);
+    m_stack->setDuration(200);
 
     auto* automationPage = makeTabPage();
     auto* managementPage = makeTabPage();
@@ -403,11 +425,12 @@ void SettingsPage::buildAboutTab(QWidget* page) {
 }
 
 void SettingsPage::onTabChanged(int index) {
-    m_stack->setCurrentIndex(index);
+    m_stack->setCurrentIndex(index, true);   // 带淡入淡出动画
     for (int i = 0; i < m_tabList->count(); ++i) {
         if (auto* w = m_tabList->itemWidget(m_tabList->item(i))) {
-            w->setProperty("active", i == index);
-            w->update();
+            if (auto* btn = qobject_cast<SettingsTabButton*>(w)) {
+                btn->setActive(i == index);
+            }
         }
     }
 }

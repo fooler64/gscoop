@@ -19,22 +19,64 @@
 #include "core/scoop_service.h"
 #include "core/theme_manager.h"
 #include "ui/theme.h"
+#include "ui/icon_painter.h"
 
 PackageInfoDialog::PackageInfoDialog(ScoopService* service, const QString& packageName,
                                      QWidget* parent)
     : QDialog(parent), m_service(service), m_name(packageName) {
     setWindowTitle(tr("包信息 - %1").arg(packageName));
-    resize(520, 560);
+    resize(540, 580);
 
     const bool dark = ThemeManager::instance().isDark();
 
     auto* outer = new QVBoxLayout(this);
     outer->setContentsMargins(0, 0, 0, 0);
+    outer->setSpacing(0);
 
+    // ---- 顶部标题栏（accentDim 底，统一色调）----
+    auto* header = new QFrame(this);
+    header->setFixedHeight(64);
+    header->setAutoFillBackground(true);
+    {
+        QPalette hp = header->palette();
+        hp.setColor(QPalette::Window, Theme::accentDim(dark));
+        header->setPalette(hp);
+    }
+    auto* headerLayout = new QHBoxLayout(header);
+    headerLayout->setContentsMargins(20, 0, 20, 0);
+    headerLayout->setSpacing(12);
+
+    // 包图标（箱子/下载图标）
+    auto* iconLbl = new QLabel(header);
+    iconLbl->setPixmap(IconPainter::download(Theme::text(dark), 24).pixmap(24, 24));
+    headerLayout->addWidget(iconLbl);
+
+    m_nameLabel = new QLabel(packageName, header);
+    QFont nameFont = m_nameLabel->font();
+    nameFont.setPointSize(nameFont.pointSize() + 3);
+    nameFont.setBold(true);
+    m_nameLabel->setFont(nameFont);
+    m_nameLabel->setStyleSheet(QString("color:%1;").arg(Theme::text(dark).name()));
+    headerLayout->addWidget(m_nameLabel);
+
+    headerLayout->addStretch();
+
+    // 关闭按钮
+    auto* closeBtn = new QPushButton(header);
+    closeBtn->setIcon(IconPainter::close(Theme::text(dark), 16));
+    closeBtn->setFlat(true);
+    closeBtn->setToolTip(tr("关闭"));
+    closeBtn->setCursor(Qt::PointingHandCursor);
+    connect(closeBtn, &QPushButton::clicked, this, &QDialog::reject);
+    headerLayout->addWidget(closeBtn);
+
+    outer->addWidget(header);
+
+    // ---- 中间内容区 ----
     auto* scroll = new QScrollArea(this);
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
-    outer->addWidget(scroll);
+    outer->addWidget(scroll, 1);
 
     auto* container = new QWidget(scroll);
     scroll->setWidget(container);
@@ -42,15 +84,8 @@ PackageInfoDialog::PackageInfoDialog(ScoopService* service, const QString& packa
     layout->setContentsMargins(28, 24, 28, 20);
     layout->setSpacing(12);
 
-    m_nameLabel = new QLabel(packageName, container);
-    QFont nameFont = m_nameLabel->font();
-    nameFont.setPointSize(nameFont.pointSize() + 4);
-    nameFont.setBold(true);
-    m_nameLabel->setFont(nameFont);
-    layout->addWidget(m_nameLabel);
-
     auto* form = new QFormLayout;
-    form->setSpacing(8);
+    form->setSpacing(10);
     m_versionLabel = new QLabel("-", container);
     m_sourceLabel = new QLabel("-", container);
     m_descLabel = new QLabel("-", container);
@@ -81,18 +116,30 @@ PackageInfoDialog::PackageInfoDialog(ScoopService* service, const QString& packa
     form->addRow(tr("备注:"), m_notesLabel);
     layout->addLayout(form);
 
-    auto* btnRow = new QHBoxLayout;
+    // ---- 底部操作栏（surface 统一色调 + 顶部分隔线）----
+    auto* footer = new QFrame(this);
+    footer->setFixedHeight(56);
+    footer->setAutoFillBackground(true);
+    {
+        QPalette fp = footer->palette();
+        fp.setColor(QPalette::Window, Theme::surface(dark));
+        footer->setPalette(fp);
+    }
+    auto* btnRow = new QHBoxLayout(footer);
+    btnRow->setContentsMargins(20, 8, 20, 8);
+    btnRow->setSpacing(10);
     btnRow->addStretch();
-    m_vtBtn = new QPushButton(tr("VirusTotal 查毒"), container);
+    m_vtBtn = new QPushButton(tr("VirusTotal 查毒"), footer);
     m_vtBtn->setToolTip(tr("使用 VirusTotal 扫描此软件（需要 scoop-virustotal 扩展）"));
     m_vtBtn->setEnabled(false);  // 只有已安装的能扫描（需要本地文件 hash）
-    m_uninstallBtn = new QPushButton(tr("卸载"), container);
+    m_uninstallBtn = new QPushButton(tr("卸载"), footer);
     m_uninstallBtn->setEnabled(false);
-    m_installBtn = new QPushButton(tr("安装"), container);
+    m_installBtn = new QPushButton(tr("安装"), footer);
+    m_installBtn->setProperty("primary", true);
     btnRow->addWidget(m_vtBtn);
     btnRow->addWidget(m_uninstallBtn);
     btnRow->addWidget(m_installBtn);
-    layout->addLayout(btnRow);
+    outer->addWidget(footer);
 
     connect(m_installBtn, &QPushButton::clicked, this, &PackageInfoDialog::onInstall);
     connect(m_uninstallBtn, &QPushButton::clicked, this, &PackageInfoDialog::onUninstall);
