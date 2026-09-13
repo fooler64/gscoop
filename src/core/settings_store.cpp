@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 #include "core/settings_store.h"
 #include <QStandardPaths>
 #include <QDir>

@@ -29,6 +29,7 @@ set(SOURCES
     src/ui/add_bucket_dialog.cpp
     src/ui/add_buckets_dialog.cpp
     src/ui/explore_bucket_dialog.cpp
+    src/ui/bucket_info_dialog.cpp
     src/ui/doctor_page.cpp
     src/ui/modern_style.cpp
 )
@@ -51,6 +52,7 @@ set(HEADERS
     src/ui/add_bucket_dialog.h
     src/ui/add_buckets_dialog.h
     src/ui/explore_bucket_dialog.h
+    src/ui/bucket_info_dialog.h
     src/ui/doctor_page.h
     src/ui/modern_style.h
 )

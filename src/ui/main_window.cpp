@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 #include "ui/main_window.h"
 
 #include <QHBoxLayout>
@@ -34,6 +35,7 @@
 #include "ui/add_bucket_dialog.h"
 #include "ui/add_buckets_dialog.h"
 #include "ui/package_info_dialog.h"
+#include "ui/bucket_info_dialog.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>

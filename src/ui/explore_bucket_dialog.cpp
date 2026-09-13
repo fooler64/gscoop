@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 #include "ui/explore_bucket_dialog.h"
 
 #include <QVBoxLayout>

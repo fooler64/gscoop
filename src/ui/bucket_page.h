@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 #pragma once
 
 #include <QWidget>
@@ -50,14 +51,16 @@ private:
     bool m_hover = false;
 };
 
-// 已安装 bucket 卡片：圆角无边框，显示名称 + manifest 数，hover 高亮，点击=删除
+// 已安装 bucket 卡片：圆角无边框，显示名称 + manifest 数，hover 高亮
+// 点击主体 → 查看介绍；点右上角删除图标 → 删除
 class InstalledBucketCard : public QFrame {
     Q_OBJECT
 public:
     InstalledBucketCard(const BucketInfo& bucket, QWidget* parent = nullptr);
 
 signals:
-    void clicked(const QString& name);   // 点击卡片 → 请求删除
+    void infoRequested(const QString& name);     // 点击卡片主体 → 查看介绍
+    void removeRequested(const QString& name);   // 点击删除图标 → 删除
 
 protected:
     void mousePressEvent(QMouseEvent* event) override;
@@ -68,6 +71,7 @@ protected:
 private:
     BucketInfo m_bucket;
     bool m_hover = false;
+    QRect m_trashRect;   // 删除图标区域（点击检测）
 };
 
 // Bucket 页：预置常用 buckets 网格 + 一键添加 + 国内镜像切换

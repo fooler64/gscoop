@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 #include "ui/package_info_dialog.h"
 
 #include <QVBoxLayout>

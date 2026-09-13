@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 #include "models/scoop_models.h"
 #include <QJsonValue>
 

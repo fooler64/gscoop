@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: LGPL-3.0-or-later
 #include "ui/bucket_page.h"
 
 #include <QVBoxLayout>
@@ -15,6 +16,7 @@
 #include <QPainter>
 #include <QPen>
 #include <QSizePolicy>
+#include <QMouseEvent>
 
 #include "core/scoop_service.h"
 #include "core/theme_manager.h"
@@ -22,6 +24,7 @@
 #include "ui/icon_painter.h"
 #include "ui/add_bucket_dialog.h"
 #include "ui/explore_bucket_dialog.h"
+#include "ui/bucket_info_dialog.h"
 
 // 预置常用 buckets（GitHub 官方地址）
 static const QVector<PresetBucket> kPresets = {
@@ -155,8 +158,14 @@ InstalledBucketCard::InstalledBucketCard(const BucketInfo& bucket, QWidget* pare
 }
 
 void InstalledBucketCard::mousePressEvent(QMouseEvent* event) {
-    Q_UNUSED(event);
-    emit clicked(m_bucket.name);
+    // 点删除图标区域（右上角 ~28px）→ 删除；其他 → 查看介绍
+    const QPoint pos = event->pos();
+    const bool onTrash = (pos.x() > width() - 34 && pos.y() < 34);
+    if (onTrash) {
+        emit removeRequested(m_bucket.name);
+    } else {
+        emit infoRequested(m_bucket.name);
+    }
     QFrame::mousePressEvent(event);
 }
 
@@ -364,9 +373,25 @@ void BucketPage::populateInstalledList(const QVector<BucketInfo>& buckets) {
     const int cols = qMax(1, 2);
     for (int i = 0; i < buckets.size(); ++i) {
         auto* card = new InstalledBucketCard(buckets[i], m_installedHost);
-        QObject::connect(card, &InstalledBucketCard::clicked, this,
+        QObject::connect(card, &InstalledBucketCard::infoRequested, this,
                          [this](const QString& name) {
-            // 点击卡片 → 直接请求删除
+            // 点击卡片主体 → 查看 bucket 介绍
+            for (const auto& b : m_buckets) {
+                if (b.name == name) {
+                    BucketInfoDialog dlg(m_service, b, this);
+                    connect(&dlg, &BucketInfoDialog::removeRequested, this,
+                            [this](const QString& rname) {
+                        m_pendingRemove = rname;
+                        onRemoveBucket();
+                    });
+                    dlg.exec();
+                    break;
+                }
+            }
+        });
+        QObject::connect(card, &InstalledBucketCard::removeRequested, this,
+                         [this](const QString& name) {
+            // 点击删除图标 → 直接请求删除
             m_pendingRemove = name;
             onRemoveBucket();
         });
