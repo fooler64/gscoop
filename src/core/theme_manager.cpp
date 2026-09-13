@@ -12,26 +12,26 @@
 // 内置默认主题（ganyu 甘雨蓝白冰系）—— 当 JSON 缺失时的兜底
 static const QMap<QString, QColor>& defaultGanyu() {
     static QMap<QString, QColor> c = {
-        {"bg", QColor("#e8f4fa")},
-        {"surface", QColor("#ffffff")},
-        {"surface2", QColor("#f2f9fd")},
-        {"surface3", QColor("#dceef7")},
-        {"border", QColor("#c4dfec")},
-        {"text", QColor("#1c3a4d")},
-        {"textSub", QColor("#5f8299")},
-        {"accent", QColor("#3d8bb5")},
-        {"accentDim", QColor("#bcdcea")},
-        {"active", QColor("#e3f2f9")},
-        {"highlight", QColor("#d9ecf6")},
-        {"gold", QColor("#c9a227")},
-        {"danger", QColor("#c94f4f")},
-        {"warn", QColor("#c1843a")},
-        {"success", QColor("#3d9a7a")},
-        {"activityBarBg", QColor("#dceef7")},
-        {"activityBarIcon", QColor("#5f8299")},
-        {"activityBarActive", QColor("#3d8bb5")},
-        {"titleBarBg", QColor("#e8f4fa")},
-        {"sideBarBg", QColor("#e3f1f8")},
+        {"bg", QColor("#a8cce8")},
+        {"surface", QColor("#f0f4fb")},
+        {"surface2", QColor("#e3edf8")},
+        {"surface3", QColor("#c7ddf0")},
+        {"border", QColor("#79a8e3")},
+        {"text", QColor("#1c2f4a")},
+        {"textSub", QColor("#3f5c80")},
+        {"accent", QColor("#305095")},
+        {"accentDim", QColor("#79a8e3")},
+        {"active", QColor("#d3e4f5")},
+        {"highlight", QColor("#b3d7fb")},
+        {"gold", QColor("#d9ad2e")},
+        {"danger", QColor("#c32222")},
+        {"warn", QColor("#b07a1f")},
+        {"success", QColor("#2f8f6b")},
+        {"activityBarBg", QColor("#8fb8dd")},
+        {"activityBarIcon", QColor("#2c4a70")},
+        {"activityBarActive", QColor("#305095")},
+        {"titleBarBg", QColor("#9cc2e4")},
+        {"sideBarBg", QColor("#a3c7e6")},
     };
     return c;
 }
@@ -136,6 +136,7 @@ QPalette ThemeManager::appPalette() const {
     const QColor bgC = color("bg");
     const QColor surfaceC = color("surface");
     const QColor surface2C = color("surface2");
+    const QColor surface3C = color("surface3");
     const QColor textC = color("text");
     const QColor textSubC = color("textSub");
     const QColor accentC = color("accent");
@@ -146,7 +147,7 @@ QPalette ThemeManager::appPalette() const {
     p.setColor(QPalette::Base, surfaceC);
     p.setColor(QPalette::AlternateBase, surface2C);
     p.setColor(QPalette::Text, textC);
-    p.setColor(QPalette::Button, surfaceC);
+    p.setColor(QPalette::Button, surface2C);
     p.setColor(QPalette::ButtonText, textC);
     p.setColor(QPalette::BrightText, textC);
     p.setColor(QPalette::Highlight, accentDimC);
@@ -155,11 +156,25 @@ QPalette ThemeManager::appPalette() const {
     p.setColor(QPalette::ToolTipText, textC);
     p.setColor(QPalette::PlaceholderText, textSubC);
     p.setColor(QPalette::Link, accentC);
+
+    // Fusion 样式需要这些角色做按钮渐变/边框，否则发白
+    p.setColor(QPalette::Light, surfaceC);
+    p.setColor(QPalette::Midlight, surface2C);
+    p.setColor(QPalette::Mid, surface3C);
+    p.setColor(QPalette::Dark, borderColor());
+    p.setColor(QPalette::Shadow, QColor(0, 0, 0, 60));
+
     p.setColor(QPalette::Disabled, QPalette::WindowText, textSubC);
     p.setColor(QPalette::Disabled, QPalette::Text, textSubC);
     p.setColor(QPalette::Disabled, QPalette::ButtonText, textSubC);
+    p.setColor(QPalette::Disabled, QPalette::Button, surface3C);
     p.setColor(QPalette::Disabled, QPalette::Highlight, surface2C);
     return p;
+}
+
+// border 色（供 appPalette 使用）
+QColor ThemeManager::borderColor() const {
+    return m_colors.value("border", QColor(0, 0, 0));
 }
 
 void ThemeManager::apply() {

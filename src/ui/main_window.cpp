@@ -199,6 +199,19 @@ void MainWindow::applyTheme(const QString& themeId) {
     ThemeManager::instance().apply();
     if (m_activityBar) m_activityBar->setDark(dark);
 
+    // 内容区页面背景跟随主题（surface2 面板色，与窗口 bg 分层）
+    const QColor pageBg = Theme::surface2(dark);
+    for (QWidget* w : {qobject_cast<QWidget*>(m_searchPage),
+                       qobject_cast<QWidget*>(m_bucketPage),
+                       qobject_cast<QWidget*>(m_installedPage),
+                       qobject_cast<QWidget*>(m_settingsPage)}) {
+        if (!w) continue;
+        QPalette wp = w->palette();
+        wp.setColor(QPalette::Window, pageBg);
+        w->setPalette(wp);
+        w->setAutoFillBackground(true);
+    }
+
     // 标题栏背景
     if (m_titleBar) {
         QPalette p = m_titleBar->palette();

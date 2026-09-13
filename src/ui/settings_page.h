@@ -6,6 +6,7 @@ class QComboBox;
 class QCheckBox;
 class QLineEdit;
 class QLabel;
+class QGroupBox;
 class ScoopService;
 
 // 设置页（复刻原版 SettingsPage 的核心项）
@@ -20,6 +21,7 @@ private slots:
 
 private:
     void setupUi();
+    QGroupBox* makeGroupBox(const QString& title, QWidget* parent);
 
     ScoopService* m_service;
     QComboBox* m_themeCombo = nullptr;

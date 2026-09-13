@@ -13,6 +13,7 @@
 #include "core/scoop_service.h"
 #include "core/settings_store.h"
 #include "core/theme_manager.h"
+#include "ui/theme.h"
 
 SettingsPage::SettingsPage(ScoopService* service, QWidget* parent)
     : QWidget(parent), m_service(service) {
@@ -20,6 +21,22 @@ SettingsPage::SettingsPage(ScoopService* service, QWidget* parent)
 
     connect(&SettingsStore::instance(), &SettingsStore::settingsChanged,
             this, &SettingsPage::onSettingsChanged);
+}
+
+// 主题化 GroupBox：surface（白）背景 + border 边框，代码调色板（无 QSS）
+QGroupBox* SettingsPage::makeGroupBox(const QString& title, QWidget* parent) {
+    auto* box = new QGroupBox(title, parent);
+    const bool dark = ThemeManager::instance().isDark();
+    QPalette bp = box->palette();
+    bp.setColor(QPalette::Window, Theme::surface(dark));
+    bp.setColor(QPalette::Base, Theme::surface(dark));
+    bp.setColor(QPalette::Button, Theme::surface(dark));
+    bp.setColor(QPalette::Text, Theme::text(dark));
+    bp.setColor(QPalette::WindowText, Theme::text(dark));
+    bp.setColor(QPalette::ButtonText, Theme::text(dark));
+    box->setPalette(bp);
+    box->setAutoFillBackground(true);
+    return box;
 }
 
 void SettingsPage::setupUi() {
@@ -33,6 +50,11 @@ void SettingsPage::setupUi() {
 
     auto* container = new QWidget(scroll);
     scroll->setWidget(container);
+    // 容器背景跟随主题（surface2 浅蓝，与窗口 bg 区分）
+    QPalette cp = container->palette();
+    cp.setColor(QPalette::Window, Theme::surface2(ThemeManager::instance().isDark()));
+    container->setPalette(cp);
+    container->setAutoFillBackground(true);
     auto* layout = new QVBoxLayout(container);
     layout->setContentsMargins(32, 28, 32, 20);
     layout->setSpacing(16);
@@ -42,7 +64,7 @@ void SettingsPage::setupUi() {
     layout->addWidget(title);
 
     // ---- 通用 ----
-    auto* generalBox = new QGroupBox(tr("通用"), container);
+    auto* generalBox = makeGroupBox(tr("通用"), container);
     auto* generalForm = new QFormLayout(generalBox);
 
     m_themeCombo = new QComboBox(generalBox);
@@ -74,7 +96,7 @@ void SettingsPage::setupUi() {
     layout->addWidget(generalBox);
 
     // ---- 托盘 ----
-    auto* trayBox = new QGroupBox(tr("托盘"), container);
+    auto* trayBox = makeGroupBox(tr("托盘"), container);
     auto* trayForm = new QFormLayout(trayBox);
     m_minimizeToTray = new QCheckBox(tr("最小化到托盘"), trayBox);
     trayForm->addRow(QString(), m_minimizeToTray);
@@ -83,7 +105,7 @@ void SettingsPage::setupUi() {
     layout->addWidget(trayBox);
 
     // ---- 网络 ----
-    auto* netBox = new QGroupBox(tr("网络"), container);
+    auto* netBox = makeGroupBox(tr("网络"), container);
     auto* netForm = new QFormLayout(netBox);
     m_useProxy = new QCheckBox(tr("使用代理"), netBox);
     netForm->addRow(QString(), m_useProxy);
@@ -93,7 +115,7 @@ void SettingsPage::setupUi() {
     layout->addWidget(netBox);
 
     // ---- 关于 ----
-    auto* aboutBox = new QGroupBox(tr("关于"), container);
+    auto* aboutBox = makeGroupBox(tr("关于"), container);
     auto* aboutForm = new QFormLayout(aboutBox);
     m_scoopStatusLabel = new QLabel(aboutBox);
     aboutForm->addRow(tr("Scoop:"), m_scoopStatusLabel);

@@ -162,14 +162,14 @@ void BucketPage::rebuildPresetGrid() {
         card->setToolTip(p.url);
         // 两行文字：名称 + 描述
         const bool dark = ThemeManager::instance().isDark();
-        QString text = QString("<b>%1</b><br><span style='color:%2;font-size:11px'>%3</span>")
-                           .arg(p.name.toHtmlEscaped(),
-                                (installed ? Theme::accent(dark).name() : Theme::textSub(dark).name()),
+        const QColor descColor = installed ? Theme::success(dark) : Theme::textSub(dark);
+        const QColor nameColor  = installed ? Theme::success(dark) : Theme::text(dark);
+        QString text = QString("<b style='color:%1'>%2</b><br><span style='color:%3;font-size:11px'>%4</span>")
+                           .arg(nameColor.name(),
+                                p.name.toHtmlEscaped(),
+                                descColor.name(),
                                 (installed ? tr("✓ 已添加") : p.desc).toHtmlEscaped());
         card->setText(text);
-        if (installed) {
-            card->setEnabled(false);   // 已添加的置灰
-        }
 
         // 甘雨配色（主题驱动，代码调色板）
         QPalette cp = card->palette();

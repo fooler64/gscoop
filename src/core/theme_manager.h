@@ -34,6 +34,8 @@ public:
     // 取色（找不到返回 fallback 黑色）
     QColor color(const QString& key) const;
     QColor color(const QString& key, const QColor& fallback) const;
+    // border 色（供 appPalette 使用）
+    QColor borderColor() const;
 
     // 生成全局 QPalette
     QPalette appPalette() const;
