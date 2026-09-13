@@ -6,18 +6,48 @@
 
 ## ✨ 特性
 
-- 🔍 **搜索包**：搜索本地 bucket 中的软件包，卡片式结果展示，简介自动适配高度
-- 📦 **已安装管理**：卡片视图，支持 更新 / 卸载 / 锁定（hold）/ 更新全部 / 搜索过滤
-- 🗂️ **Bucket 管理**：
-  - 预置 12 个常用 bucket，一键添加
-  - 国内镜像切换（ghproxy / gh-proxy / ghfast）
-  - **探索新仓库**：搜索 GitHub 上的 scoop bucket 仓库（按 Stars 排序、过滤中文）
-  - 批量添加多个 bucket
-  - 点击已添加 bucket 查看详情
-- 🧰 **环境自检（Doctor）**：检查 Git / Scoop / 7zip / Main bucket / 长路径 / NTFS / 开发者模式
-- 🛡️ **安全**：VirusTotal 查毒集成（需 scoop-virustotal 扩展 + API key）
-- 🎨 **甘雨主题**：全界面 JSON 主题文件驱动（`themes/*.json`），冰蓝 + 白 + 金配色，无 QSS
-- 🪟 **现代化 UI**：无边框窗口、自绘窗口按钮、圆角卡片、过渡动画、自绘图标（QPainter 矢量）
+### 🔍 搜索包
+- 搜索本地所有 bucket 中的软件包，**相关性排序**：完全匹配 > 前缀匹配 > 子串匹配（搜 `git` 时 `git` 排第一）
+- **卡片式结果展示**：每张卡片显示 名称 / 版本 / bucket / 简介，卡片高度按简介长度自动适配
+- 未安装的包右侧显示**下载箭头**，已安装的显示绿色「已安装」徽标
+- 单击卡片打开**包信息弹窗**，右键菜单可 查看信息 / 安装 / 卸载
+- 搜索支持包名、描述、二进制（bin）匹配，分「包」和「二进制」两个标签
+
+### 📦 已安装管理
+- **卡片视图**展示所有已安装软件（名称 / 版本 / 来源 bucket）
+- 每张卡片左上角：**锁图标**（点击锁定/解锁，锁定后不更新）+ **删除图标**（点击卸载）
+- 有更新时卡片右上角显示「可更新」徽标
+- 顶部工具栏：**搜索过滤**（按名称/描述）、**筛选下拉**（全部/可更新/已锁定/异常）、**刷新**、**更新全部**
+- 点击卡片查看详细信息
+
+### 🗂️ Bucket 管理
+- **预置 12 个常用 bucket**（main / extras / versions / nirsoft / sysinternals / php / java / games / nonportable / nerd-fonts / extras-cn / cluttered-bucket），一键添加
+- **国内镜像切换**：GitHub 直连 / ghproxy.com / gh-proxy.com / ghfast.top
+- **探索新仓库**：搜索 GitHub 上的 scoop bucket 仓库，显示 owner/repo、描述、⭐Stars、更新时间，支持按 Stars/Apps/名称排序、隐藏中文 bucket、最小 Stars 过滤
+- **添加 Bucket**：填写名称 + URL 添加单个仓库，或「添加多个 Buckets」批量添加（每行一个仓库）
+- **已添加的 Buckets** 以卡片展示，点击卡片查看详情（类型/仓库/Manifests 数/分支/更新时间/路径），可打开仓库、删除 bucket
+
+### 🧰 环境自检（Doctor）
+- 一键检查：Git 是否安装 / Scoop 是否安装 / 7zip 是否安装 / Main bucket 是否安装 / Windows 长路径是否启用 / Scoop 是否位于 NTFS 磁盘 / 开发者模式是否启用
+- 每项显示 通过/警告/失败 状态，附版本号或路径
+- 附带**清理工具**：清理旧版本（scoop cleanup）+ 清理缓存（scoop cache rm）
+
+### 🛡️ 安全
+- **VirusTotal 查毒**：在包信息弹窗中一键调用 `scoop virustotal <package>` 扫描（需安装 scoop-virustotal 扩展并配置 API key）
+- 支持网络代理设置
+
+### ⚙️ 设置
+- **自动化**：启动时检查更新、显示更新提示条
+- **管理**：环境自检 + 自动清理
+- **安全**：VirusTotal API key、网络代理
+- **窗口**：主题选择（甘雨 / 雪白）、语言、启动页
+- **托盘**：最小化到托盘、关闭到托盘
+- **关于**：Scoop 状态、版本信息
+
+### 🎨 主题与 UI
+- **甘雨主题**：全界面 JSON 主题文件驱动（`themes/*.json`），甘雨·蓝白冰系配色，可自由扩展新主题
+- **现代化界面**：无边框窗口 + 自绘标题栏（最小化/最大化/关闭）、左侧活动栏、圆角卡片、页面切换过渡动画、全部图标用 QPainter 矢量自绘
+- 不使用 QSS（Qt 私有样式标准），颜色全部收敛到 JSON 配置
 
 ## 📸 截图
 
