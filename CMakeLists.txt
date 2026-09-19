@@ -46,6 +46,7 @@ set(SOURCES
     src/ui/modern_style.cpp
     src/ui/window_button.cpp
     src/ui/log_panel.cpp
+    src/ui/toggle_switch.cpp
 )
 
 set(HEADERS
@@ -72,6 +73,7 @@ set(HEADERS
     src/ui/modern_style.h
     src/ui/window_button.h
     src/ui/log_panel.h
+    src/ui/toggle_switch.h
 )
 
 qt_add_executable(gscoop

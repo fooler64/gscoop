@@ -7,9 +7,9 @@
 #include "core/scoop_service.h"
 
 class QVariantAnimation;
+class ToggleSwitch;
 
 class QComboBox;
-class QCheckBox;
 class QLineEdit;
 class QLabel;
 class QGroupBox;
@@ -52,6 +52,10 @@ public:
     explicit SettingsPage(ScoopService* service, QWidget* parent = nullptr);
     void onPageShown();
 
+signals:
+    // 请求把文本写入底部日志面板（由 MainWindow 转发）
+    void logRequested(const QString& title, const QString& text);
+
 private slots:
     void onSettingsChanged();
     void onTabChanged(int index);
@@ -80,9 +84,9 @@ private:
     AnimatedStackedWidget* m_stack = nullptr;
 
     // 自动化
-    QCheckBox* m_autoUpdateCheck = nullptr;
-    QCheckBox* m_showUpdateBanner = nullptr;
-    QCheckBox* m_autoBucketUpdateCheck = nullptr;
+    ToggleSwitch* m_autoUpdateCheck = nullptr;
+    ToggleSwitch* m_showUpdateBanner = nullptr;
+    ToggleSwitch* m_autoBucketUpdateCheck = nullptr;
     QComboBox* m_bucketUpdateInterval = nullptr;
     QPushButton* m_bucketUpdateNowBtn = nullptr;
     // 管理
@@ -97,15 +101,15 @@ private:
     QWidget* m_doctorResultsHost = nullptr;
     // 安全
     QLineEdit* m_vtApiKeyEdit = nullptr;
-    QCheckBox* m_useProxy = nullptr;
+    ToggleSwitch* m_useProxy = nullptr;
     QLineEdit* m_proxyEdit = nullptr;
     // 窗口
     QComboBox* m_themeCombo = nullptr;
     QComboBox* m_languageCombo = nullptr;
     QComboBox* m_launchPageCombo = nullptr;
     // 托盘
-    QCheckBox* m_minimizeToTray = nullptr;
-    QCheckBox* m_closeToTray = nullptr;
+    ToggleSwitch* m_minimizeToTray = nullptr;
+    ToggleSwitch* m_closeToTray = nullptr;
     // 关于
     QLabel* m_scoopStatusLabel = nullptr;
 };

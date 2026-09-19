@@ -26,6 +26,7 @@
 #include "core/theme_manager.h"
 #include "ui/theme.h"
 #include "ui/icon_painter.h"
+#include "ui/toggle_switch.h"
 
 // 内置已验证 buckets（来自 rscoop 的 VERIFIED_BUCKETS_DATA）
 static const QVector<SearchableBucket> kVerifiedBuckets() {
@@ -121,7 +122,8 @@ void ExploreBucketDialog::setupUi() {
     m_minStarsSpin->setSingleStep(1);
     filterRow->addWidget(m_minStarsSpin);
 
-    m_hideChineseCheck = new QCheckBox(tr("隐藏中文 bucket"), this);
+    filterRow->addWidget(new QLabel(tr("隐藏中文:"), this));
+    m_hideChineseCheck = new ToggleSwitch(this);
     m_hideChineseCheck->setToolTip(tr("过滤掉描述包含中文的仓库"));
     filterRow->addWidget(m_hideChineseCheck);
 
@@ -162,7 +164,7 @@ void ExploreBucketDialog::setupUi() {
             this, [this](int) { if (!m_searching) onSearch(); });
     connect(m_minStarsSpin, QOverload<int>::of(&QSpinBox::valueChanged),
             this, [this](int) { if (!m_searching) onSearch(); });
-    connect(m_hideChineseCheck, &QCheckBox::toggled,
+    connect(m_hideChineseCheck, &QAbstractButton::toggled,
             this, [this](bool) { if (!m_searching) onSearch(); });
     connect(m_resultList, &QListWidget::currentRowChanged,
             this, [this](int row) { m_addBtn->setEnabled(row >= 0); });

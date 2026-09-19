@@ -8,6 +8,7 @@ class QLineEdit;
 class QPushButton;
 class QComboBox;
 class QCheckBox;
+class ToggleSwitch;
 class QSpinBox;
 class QListWidget;
 class QLabel;
@@ -52,7 +53,7 @@ private:
     QComboBox* m_sortCombo = nullptr;
     QComboBox* m_perPageCombo = nullptr;
     QSpinBox* m_minStarsSpin = nullptr;
-    QCheckBox* m_hideChineseCheck = nullptr;
+    ToggleSwitch* m_hideChineseCheck = nullptr;
     QListWidget* m_resultList = nullptr;
     QLabel* m_statusLabel = nullptr;
     QPushButton* m_addBtn = nullptr;

@@ -87,6 +87,7 @@ public:
 
     // ---- 批量操作 ----
     void updatePackages(const QStringList& names);      // 逐个更新（自动排队）
+    void installPackages(const QStringList& names);     // 逐个安装（自动排队）
     void uninstallPackages(const QStringList& names);
     void holdPackages(const QStringList& names, bool hold);
 

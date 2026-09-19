@@ -21,12 +21,14 @@
 #include <QFutureWatcher>
 #include <QLayoutItem>
 #include <QVariantAnimation>
+#include <QTimer>
 #include <QFileDialog>
 #include <QDir>
 
 #include "core/scoop_service.h"
 #include "core/settings_store.h"
 #include "core/i18n.h"
+#include "ui/toggle_switch.h"
 #include "core/theme_manager.h"
 #include "ui/theme.h"
 #include "ui/icon_painter.h"
@@ -222,26 +224,26 @@ void SettingsPage::buildAutomationTab(QWidget* page) {
 
     auto* box = makeGroupBox(tr("更新"), page);
     auto* form = new QFormLayout(box);
-    m_autoUpdateCheck = new QCheckBox(tr("启动时检查更新"), box);
-    m_showUpdateBanner = new QCheckBox(tr("显示更新提示条"), box);
-    form->addRow(QString(), m_autoUpdateCheck);
-    form->addRow(QString(), m_showUpdateBanner);
+    m_autoUpdateCheck = new ToggleSwitch(box);
+    m_showUpdateBanner = new ToggleSwitch(box);
+    form->addRow(tr("启动时检查更新:"), m_autoUpdateCheck);
+    form->addRow(tr("显示更新提示条:"), m_showUpdateBanner);
     layout->insertWidget(1, box);
 
     auto* hint = new QLabel(tr("自动检查 gScoop 和相关工具是否有新版本。"), page);
     hint->setStyleSheet(QString("color:%1;font-size:11px;").arg(Theme::textSub(false).name()));
     layout->insertWidget(2, hint);
 
-    connect(m_autoUpdateCheck, &QCheckBox::toggled,
+    connect(m_autoUpdateCheck, &QAbstractButton::toggled,
             &SettingsStore::instance(), &SettingsStore::setAutoUpdateCheck);
-    connect(m_showUpdateBanner, &QCheckBox::toggled,
+    connect(m_showUpdateBanner, &QAbstractButton::toggled,
             &SettingsStore::instance(), &SettingsStore::setShowUpdateBanner);
 
     // ---- bucket 自动更新 ----
     auto* bBox = makeGroupBox(tr("Bucket 自动更新"), page);
     auto* bForm = new QFormLayout(bBox);
-    m_autoBucketUpdateCheck = new QCheckBox(tr("定期自动更新 bucket 索引"), bBox);
-    bForm->addRow(QString(), m_autoBucketUpdateCheck);
+    m_autoBucketUpdateCheck = new ToggleSwitch(bBox);
+    bForm->addRow(tr("定期自动更新 bucket 索引:"), m_autoBucketUpdateCheck);
 
     m_bucketUpdateInterval = new QComboBox(bBox);
     m_bucketUpdateInterval->addItem(tr("每 24 小时"), 24);
@@ -257,7 +259,7 @@ void SettingsPage::buildAutomationTab(QWidget* page) {
     bHint->setStyleSheet(QString("color:%1;font-size:11px;").arg(Theme::textSub(false).name()));
     layout->insertWidget(4, bHint);
 
-    connect(m_autoBucketUpdateCheck, &QCheckBox::toggled, this, [this](bool on) {
+    connect(m_autoBucketUpdateCheck, &QAbstractButton::toggled, this, [this](bool on) {
         SettingsStore::instance().setAutoBucketUpdate(
             on, m_bucketUpdateInterval->currentData().toInt());
     });
@@ -302,12 +304,19 @@ void SettingsPage::buildManagementTab(QWidget* page) {
     m_doctorStatusLabel->setStyleSheet(QString("color:%1;").arg(Theme::textSub(false).name()));
     doctorLay->addWidget(m_doctorStatusLabel);
 
-    // 结果容器
-    m_doctorResultsHost = new QWidget(doctorBox);
+    // 结果容器（可滚动：结果多时可下滑）
+    auto* doctorScroll = new QScrollArea(doctorBox);
+    doctorScroll->setWidgetResizable(true);
+    doctorScroll->setFrameShape(QFrame::NoFrame);
+    doctorScroll->setMinimumHeight(150);
+    doctorScroll->setMaximumHeight(320);
+    m_doctorResultsHost = new QWidget(doctorScroll);
     m_doctorResultsLayout = new QVBoxLayout(m_doctorResultsHost);
     m_doctorResultsLayout->setContentsMargins(0, 0, 0, 0);
     m_doctorResultsLayout->setSpacing(6);
-    doctorLay->addWidget(m_doctorResultsHost);
+    m_doctorResultsLayout->setAlignment(Qt::AlignTop);
+    doctorScroll->setWidget(m_doctorResultsHost);
+    doctorLay->addWidget(doctorScroll);
 
     layout->insertWidget(1, doctorBox);
 
@@ -379,14 +388,14 @@ void SettingsPage::buildSecurityTab(QWidget* page) {
     // ---- 网络代理 ----
     auto* netBox = makeGroupBox(tr("网络"), page);
     auto* netForm = new QFormLayout(netBox);
-    m_useProxy = new QCheckBox(tr("使用代理"), netBox);
-    netForm->addRow(QString(), m_useProxy);
+    m_useProxy = new ToggleSwitch(netBox);
+    netForm->addRow(tr("使用代理:"), m_useProxy);
     m_proxyEdit = new QLineEdit(netBox);
     m_proxyEdit->setPlaceholderText(tr("http://127.0.0.1:7897"));
     netForm->addRow(tr("代理地址:"), m_proxyEdit);
     layout->insertWidget(3, netBox);
 
-    connect(m_useProxy, &QCheckBox::toggled, this, [this](bool on) {
+    connect(m_useProxy, &QAbstractButton::toggled, this, [this](bool on) {
         SettingsStore::instance().setProxy(m_proxyEdit->text(), on);
     });
     connect(m_proxyEdit, &QLineEdit::textChanged, this, [this](const QString& text) {
@@ -463,19 +472,19 @@ void SettingsPage::buildTrayTab(QWidget* page) {
 
     auto* box = makeGroupBox(tr("系统托盘"), page);
     auto* form = new QFormLayout(box);
-    m_minimizeToTray = new QCheckBox(tr("最小化到托盘"), box);
-    m_closeToTray = new QCheckBox(tr("关闭到托盘"), box);
-    form->addRow(QString(), m_minimizeToTray);
-    form->addRow(QString(), m_closeToTray);
+    m_minimizeToTray = new ToggleSwitch(box);
+    m_closeToTray = new ToggleSwitch(box);
+    form->addRow(tr("最小化到托盘:"), m_minimizeToTray);
+    form->addRow(tr("关闭到托盘:"), m_closeToTray);
     layout->insertWidget(1, box);
 
     auto* hint = new QLabel(tr("启用后，关闭/最小化窗口时程序将继续在系统托盘运行。"), page);
     hint->setStyleSheet(QString("color:%1;font-size:11px;").arg(Theme::textSub(false).name()));
     layout->insertWidget(2, hint);
 
-    connect(m_minimizeToTray, &QCheckBox::toggled,
+    connect(m_minimizeToTray, &QAbstractButton::toggled,
             &SettingsStore::instance(), &SettingsStore::setMinimizeToTray);
-    connect(m_closeToTray, &QCheckBox::toggled,
+    connect(m_closeToTray, &QAbstractButton::toggled,
             &SettingsStore::instance(), &SettingsStore::setCloseToTray);
 }
 
@@ -512,7 +521,7 @@ void SettingsPage::onTabChanged(int index) {
     }
 }
 
-// 一键修复：根据自检结果自动安装缺失依赖 / 补建 bucket
+// 一键修复：根据自检结果自动安装缺失依赖 / 补建 bucket（真正执行）
 void SettingsPage::onFixAll() {
     if (QMessageBox::question(this, tr("一键修复"),
             tr("将自动执行以下修复：\n"
@@ -521,25 +530,39 @@ void SettingsPage::onFixAll() {
                "· 缺少 main bucket → scoop bucket add main\n\n"
                "是否继续？")) != QMessageBox::Yes) return;
 
+    if (m_service->isBusy()) {
+        QMessageBox::information(this, tr("提示"), tr("已有操作在进行中，请等待完成。"));
+        return;
+    }
+
     const QVector<DoctorCheckItem> items = m_service->runDoctor();
-    int fixes = 0;
+    QStringList installs;
+    bool needMain = false;
     for (const auto& it : items) {
         if (it.passed) continue;
-        // 仅修复可自动处理项（git / 7zip / main bucket）
-        if (it.title.contains("git", Qt::CaseInsensitive) && !it.title.contains("bucket")) {
-            m_service->installPackage("git"); ++fixes;
-        } else if (it.title.contains("7zip")) {
-            m_service->installPackage("7zip"); ++fixes;
-        } else if (it.title.contains("Main bucket")) {
-            m_service->addBucket("main", QString()); ++fixes;
-        }
+        if (it.title.contains("Git", Qt::CaseInsensitive)) installs << "git";
+        else if (it.title.contains("7zip")) installs << "7zip";
+        else if (it.title.contains("Main bucket")) needMain = true;
     }
-    if (fixes == 0) {
+
+    if (installs.isEmpty() && !needMain) {
         m_doctorStatusLabel->setText(tr("没有可自动修复的问题（其余项需手动处理）"));
-    } else {
-        m_doctorStatusLabel->setText(tr("已提交 %1 项修复，请在底部日志查看进度").arg(fixes));
+        emit logRequested(tr("一键修复"), tr("未发现可自动修复的问题。\n"));
+        return;
     }
-    onRunDoctor();
+
+    QString log = tr("开始自动修复…\n");
+    if (!installs.isEmpty()) log += tr("安装缺失依赖：%1\n").arg(installs.join(", "));
+    if (needMain) log += tr("补建 main bucket\n");
+    emit logRequested(tr("一键修复"), log);
+
+    // 真正执行：缺失依赖走批量安装队列，main bucket 单独添加
+    if (!installs.isEmpty()) m_service->installPackages(installs);
+    if (needMain) m_service->addBucket("main", QString());
+
+    m_doctorStatusLabel->setText(tr("已提交修复，请在底部日志查看进度"));
+    // 稍后刷新自检结果
+    QTimer::singleShot(3000, this, [this]() { onRunDoctor(); });
 }
 
 // 导出配置
@@ -574,15 +597,30 @@ void SettingsPage::onUpdateBucketsNow() {
 void SettingsPage::onRunDoctor() {
     m_doctorStatusLabel->setText(tr("正在检查..."));
     m_runDoctorBtn->setEnabled(false);
+    emit logRequested(tr("环境自检"), tr("开始检查环境…\n"));
 
     QFuture<QVector<DoctorCheckItem>> future = QtConcurrent::run([this]() {
         return m_service->runDoctor();
     });
     auto* watcher = new QFutureWatcher<QVector<DoctorCheckItem>>(this);
     connect(watcher, &QFutureWatcher<QVector<DoctorCheckItem>>::finished, this, [this, watcher]() {
-        populateDoctorResults(watcher->result());
+        const QVector<DoctorCheckItem> items = watcher->result();
+        populateDoctorResults(items);
         m_runDoctorBtn->setEnabled(true);
         watcher->deleteLater();
+
+        // 结果写入底部日志
+        QString log;
+        int passed = 0;
+        for (const auto& it : items) {
+            if (it.passed) ++passed;
+            const QString state = it.passed ? tr("通过") : (it.warning ? tr("警告") : tr("失败"));
+            log += QString("[%1] %2").arg(state, it.title);
+            if (!it.detail.isEmpty()) log += QString("  (%1)").arg(it.detail);
+            log += "\n";
+        }
+        log += tr("自检完成：%1/%2 通过").arg(passed).arg(items.size());
+        emit logRequested(tr("环境自检"), log);
     });
     watcher->setFuture(future);
 }

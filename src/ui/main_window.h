@@ -48,6 +48,7 @@ private slots:
     void onMinimizeClicked();
     void onMaximizeClicked();
     void onCloseClicked();
+    void onElevateClicked();     // 以管理员身份重新启动
     void onAutoBucketUpdateTick();
 
 private:
@@ -62,6 +63,7 @@ private:
     QList<QPushButton*> m_navButtons;
     ActivityBar* m_activityBar = nullptr;
     QFrame* m_titleBar = nullptr;
+    QPushButton* m_elevateBtn = nullptr;
     WindowButton* m_minBtn = nullptr;
     WindowButton* m_maxBtn = nullptr;
     WindowButton* m_closeBtn = nullptr;

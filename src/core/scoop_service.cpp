@@ -458,6 +458,13 @@ void ScoopService::updatePackages(const QStringList& names) {
     }
 }
 
+void ScoopService::installPackages(const QStringList& names) {
+    if (names.isEmpty()) return;
+    for (const QString& n : names) {
+        enqueue({ScoopOpType::Install, {"install", n}, n});
+    }
+}
+
 void ScoopService::uninstallPackages(const QStringList& names) {
     if (names.isEmpty()) return;
     for (const QString& n : names) {
@@ -586,11 +593,11 @@ QVector<DoctorCheckItem> ScoopService::runDoctor() {
     gitProc.start("git", {"--version"});
     gitProc.waitForFinished(8000);
     const QString gitOut = QString::fromLocal8Bit(gitProc.readAllStandardOutput()).trimmed();
-    addItem(tr("Git 已安装"), !gitOut.isEmpty(), gitOut,
+    addItem(tr("Git"), !gitOut.isEmpty(), gitOut,
             gitOut.isEmpty() ? tr("请安装 git：scoop install git") : QString());
 
     // 2. Scoop 本体
-    addItem(tr("Scoop 已安装"), isScoopInstalled(), m_scoopPath,
+    addItem(tr("Scoop"), isScoopInstalled(), m_scoopPath,
             isScoopInstalled() ? QString() : tr("未检测到 Scoop，请先安装"));
 
     // 3. 7zip（解压依赖）
@@ -603,14 +610,14 @@ QVector<DoctorCheckItem> ScoopService::runDoctor() {
     for (const QString& c : candidates) {
         if (QFile::exists(c)) { has7zip = true; sevenZipPath = c; break; }
     }
-    addItem(tr("7zip 已安装"), has7zip,
+    addItem(tr("7zip"), has7zip,
             has7zip ? sevenZipPath : QString(),
             has7zip ? QString() : tr("缺少 7zip，可能影响解压：scoop install 7zip"));
 
     // 4. main bucket
     const QString mainBucket = bucketsRootDir() + "/main";
     const bool hasMain = QDir(mainBucket).exists();
-    addItem(tr("Main bucket 已安装"), hasMain,
+    addItem(tr("Main bucket"), hasMain,
             hasMain ? mainBucket : QString(),
             hasMain ? QString() : tr("缺少 main bucket：scoop bucket add main"));
 
@@ -622,7 +629,7 @@ QVector<DoctorCheckItem> ScoopService::runDoctor() {
         reg.waitForFinished(6000);
         const QString out = QString::fromLocal8Bit(reg.readAllStandardOutput());
         const bool enabled = out.contains("0x1");
-        addItem(tr("Windows 长路径已启用"), enabled,
+        addItem(tr("Windows 长路径支持"), enabled,
                 enabled ? tr("已启用") : tr("未启用"),
                 enabled ? QString() : tr("建议启用长路径支持以处理深层路径（regedit → LongPathsEnabled=1）"),
                 true);  // 警告级别
@@ -637,7 +644,7 @@ QVector<DoctorCheckItem> ScoopService::runDoctor() {
         fs.waitForFinished(6000);
         const QString out = QString::fromLocal8Bit(fs.readAllStandardOutput()).toUpper();
         const bool ntfs = out.contains("NTFS");
-        addItem(tr("Scoop 位于 NTFS 磁盘"), ntfs,
+        addItem(tr("Scoop 磁盘格式"), ntfs,
                 ntfs ? tr("NTFS") : out.simplified(),
                 ntfs ? QString() : tr("Scoop 应安装在 NTFS 磁盘上（FAT32 不支持符号链接）"),
                 true);
@@ -651,7 +658,7 @@ QVector<DoctorCheckItem> ScoopService::runDoctor() {
         reg.waitForFinished(6000);
         const QString out = QString::fromLocal8Bit(reg.readAllStandardOutput());
         const bool devMode = out.contains("0x1");
-        addItem(tr("开发者模式已启用"), devMode,
+        addItem(tr("开发者模式"), devMode,
                 devMode ? tr("已启用") : tr("未启用"),
                 devMode ? QString() : tr("开发者模式有助于 Scoop 使用符号链接（可选）"),
                 true);

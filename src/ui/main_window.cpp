@@ -45,6 +45,7 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <shellapi.h>
 #include <dwmapi.h>
 // MinGW 旧头文件可能缺少这些常量
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
@@ -149,6 +150,15 @@ void MainWindow::setupUi() {
     winBtns->setContentsMargins(0, 0, 0, 0);
     winBtns->setSpacing(2);
 
+    // 以管理员身份运行（权限不足时一键提权重启）
+    m_elevateBtn = new QPushButton(m_titleBar);
+    m_elevateBtn->setIcon(IconPainter::shield(Theme::textSub(false), 16));
+    m_elevateBtn->setFixedSize(34, 30);
+    m_elevateBtn->setFlat(true);
+    m_elevateBtn->setCursor(Qt::PointingHandCursor);
+    m_elevateBtn->setToolTip(tr("以管理员身份重新启动（解决权限问题）"));
+    winBtns->addWidget(m_elevateBtn);
+
     m_minBtn = new WindowButton(WindowButton::Minimize, m_titleBar);
     m_maxBtn = new WindowButton(WindowButton::MaximizeRestore, m_titleBar);
     m_closeBtn = new WindowButton(WindowButton::Close, m_titleBar);
@@ -158,6 +168,7 @@ void MainWindow::setupUi() {
     }
     titleLayout->addLayout(winBtns);
 
+    connect(m_elevateBtn, &QPushButton::clicked, this, &MainWindow::onElevateClicked);
     connect(m_minBtn, &WindowButton::clicked, this, &MainWindow::onMinimizeClicked);
     connect(m_maxBtn, &WindowButton::clicked, this, &MainWindow::onMaximizeClicked);
     connect(m_closeBtn, &WindowButton::clicked, this, &MainWindow::onCloseClicked);
@@ -184,7 +195,7 @@ void MainWindow::setupUi() {
     // 右侧内容（页面堆栈）
     m_stack = new AnimatedStackedWidget(this);
     // 主页面：水平滑动（活动栏在左侧，左右切换更符合直觉）
-    m_stack->setSlideAxis(Qt::Horizontal);
+    m_stack->setSlideAxis(Qt::Vertical);   // 主页面：上→下 / 下→上 垂直切换
     m_stack->setDuration(220);
     m_stack->setSlideExtent(1.0);
     m_searchPage = new SearchPage(m_service, this);
@@ -223,6 +234,13 @@ void MainWindow::setupUi() {
     connect(m_service, &ScoopService::opFinished, this,
             [this](ScoopOpType, const QString&, bool success, const QString& error) {
         m_logPanel->finishOperation(success, error);
+    });
+    // 设置页（自检/一键修复）请求写日志
+    connect(m_settingsPage, &SettingsPage::logRequested, this,
+            [this](const QString& title, const QString& text) {
+        m_logPanel->beginOperation(title, QString());
+        m_logPanel->appendRaw(text);
+        m_logPanel->setExpanded(true);
     });
 
     // 启动页
@@ -395,6 +413,42 @@ void MainWindow::onMaximizeClicked() {
 
 void MainWindow::onCloseClicked() {
     close();
+}
+
+// 以管理员身份重新启动（UAC 提权）
+void MainWindow::onElevateClicked() {
+#ifdef Q_OS_WIN
+    // 已经是管理员则直接提示
+    BOOL isAdmin = FALSE;
+    PSID adminGroup = nullptr;
+    SID_IDENTIFIER_AUTHORITY ntAuth = SECURITY_NT_AUTHORITY;
+    if (AllocateAndInitializeSid(&ntAuth, 2, SECURITY_BUILTIN_DOMAIN_RID,
+                                 DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0,
+                                 &adminGroup)) {
+        CheckTokenMembership(nullptr, adminGroup, &isAdmin);
+        FreeSid(adminGroup);
+    }
+    if (isAdmin) {
+        QMessageBox::information(this, tr("管理员权限"),
+            tr("gScoop 当前已以管理员身份运行。"));
+        return;
+    }
+
+    const QString exe = QCoreApplication::applicationDirPath() + "/gscoop.exe";
+    // ShellExecuteW "runas" 触发 UAC 提权
+    const HINSTANCE r = ShellExecuteW(nullptr, L"runas", reinterpret_cast<LPCWSTR>(exe.utf16()),
+                                      nullptr, nullptr, SW_SHOWNORMAL);
+    if (reinterpret_cast<qintptr>(r) <= 32) {
+        QMessageBox::warning(this, tr("提权失败"),
+            tr("无法以管理员身份启动（可能被用户取消）。"));
+        return;
+    }
+    // 提权成功：退出当前实例，避免两个实例并存
+    m_exiting = true;
+    QCoreApplication::quit();
+#else
+    QMessageBox::information(this, tr("提示"), tr("该功能仅支持 Windows。"));
+#endif
 }
 
 void MainWindow::updateMaximizeIcon() {
