@@ -174,9 +174,11 @@ void SettingsPage::setupUi() {
     m_tabList->setCurrentRow(0);
     outer->addWidget(m_tabList);
 
-    // ---- 右侧内容区（带切换动画）----
+    // ---- 右侧内容区（竖向滑动：与左侧竖直标签列表方向一致）----
     m_stack = new AnimatedStackedWidget(this);
+    m_stack->setSlideAxis(Qt::Vertical);
     m_stack->setDuration(200);
+    m_stack->setSlideExtent(1.0);
 
     auto* automationPage = makeTabPage();
     auto* managementPage = makeTabPage();

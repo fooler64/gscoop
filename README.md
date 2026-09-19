@@ -1,5 +1,7 @@
 # gScoop
 
+<img src="resources/gscoop-256.png" width="110" alt="gScoop icon">
+
 ![License](https://img.shields.io/badge/License-LGPL--3.0-blue.svg)
 
 **Scoop 包管理器图形化客户端** —— 使用 C++ / Qt 6 重构的 [Rscoop](https://github.com/AmarBego/Rscoop)，甘雨主题界面，现代化卡片式 UI。

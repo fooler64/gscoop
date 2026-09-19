@@ -18,9 +18,6 @@
 #include <QShowEvent>
 #include <QMouseEvent>
 #include <QEvent>
-#include <QTimer>
-#include <QPainter>
-#include <QPixmap>
 
 #include "core/scoop_service.h"
 #include "core/settings_store.h"
@@ -29,6 +26,7 @@
 #include "ui/activity_bar.h"
 #include "ui/theme.h"
 #include "ui/icon_painter.h"
+#include "ui/window_button.h"
 #include "ui/search_page.h"
 #include "ui/installed_page.h"
 #include "ui/bucket_page.h"
@@ -108,44 +106,23 @@ void MainWindow::setupUi() {
     titleLayout->addWidget(subLabel);
     titleLayout->addStretch();
 
-    // ---- 自绘窗口按钮（最小化/最大化/关闭）----
-    const int btnSize = 36;
-    const QColor btnIconColor = Theme::textSub(false);
+    // ---- 自绘窗口按钮（最小化/最大化-还原/关闭，带 hover 过渡动画）----
+    auto* winBtns = new QHBoxLayout;
+    winBtns->setContentsMargins(0, 0, 0, 0);
+    winBtns->setSpacing(2);
 
-    m_minBtn = new QPushButton(m_titleBar);
-    m_minBtn->setIcon(IconPainter::minimize(btnIconColor, 14));
-    m_minBtn->setFixedSize(btnSize, btnSize);
-    m_minBtn->setFlat(true);
-    m_minBtn->setCursor(Qt::PointingHandCursor);
-    m_minBtn->setToolTip(tr("最小化"));
-    m_minBtn->setObjectName("winBtn");
-    titleLayout->addWidget(m_minBtn);
+    m_minBtn = new WindowButton(WindowButton::Minimize, m_titleBar);
+    m_maxBtn = new WindowButton(WindowButton::MaximizeRestore, m_titleBar);
+    m_closeBtn = new WindowButton(WindowButton::Close, m_titleBar);
+    for (WindowButton* b : {m_minBtn, m_maxBtn, m_closeBtn}) {
+        b->setFixedSize(44, 32);
+        winBtns->addWidget(b);
+    }
+    titleLayout->addLayout(winBtns);
 
-    m_maxBtn = new QPushButton(m_titleBar);
-    m_maxBtn->setIcon(IconPainter::maximize(btnIconColor, 14));
-    m_maxBtn->setFixedSize(btnSize, btnSize);
-    m_maxBtn->setFlat(true);
-    m_maxBtn->setCursor(Qt::PointingHandCursor);
-    m_maxBtn->setToolTip(tr("最大化"));
-    m_maxBtn->setObjectName("winBtn");
-    titleLayout->addWidget(m_maxBtn);
-
-    m_closeBtn = new QPushButton(m_titleBar);
-    m_closeBtn->setIcon(IconPainter::close(btnIconColor, 14));
-    m_closeBtn->setFixedSize(btnSize, btnSize);
-    m_closeBtn->setFlat(true);
-    m_closeBtn->setCursor(Qt::PointingHandCursor);
-    m_closeBtn->setToolTip(tr("关闭"));
-    m_closeBtn->setObjectName("winCloseBtn");
-    titleLayout->addWidget(m_closeBtn);
-
-    // 窗口按钮 hover/点击样式（代码调色板）
-    connect(m_minBtn, &QPushButton::clicked, this, &MainWindow::onMinimizeClicked);
-    connect(m_maxBtn, &QPushButton::clicked, this, &MainWindow::onMaximizeClicked);
-    connect(m_closeBtn, &QPushButton::clicked, this, &MainWindow::onCloseClicked);
-    m_minBtn->installEventFilter(this);
-    m_maxBtn->installEventFilter(this);
-    m_closeBtn->installEventFilter(this);
+    connect(m_minBtn, &WindowButton::clicked, this, &MainWindow::onMinimizeClicked);
+    connect(m_maxBtn, &WindowButton::clicked, this, &MainWindow::onMaximizeClicked);
+    connect(m_closeBtn, &WindowButton::clicked, this, &MainWindow::onCloseClicked);
 
     rootLayout->addWidget(m_titleBar);
 
@@ -168,6 +145,10 @@ void MainWindow::setupUi() {
 
     // 右侧内容（页面堆栈）
     m_stack = new AnimatedStackedWidget(this);
+    // 主页面：水平滑动（活动栏在左侧，左右切换更符合直觉）
+    m_stack->setSlideAxis(Qt::Horizontal);
+    m_stack->setDuration(220);
+    m_stack->setSlideExtent(1.0);
     m_searchPage = new SearchPage(m_service, this);
     m_bucketPage = new BucketPage(m_service, this);
     m_installedPage = new InstalledPage(m_service, this);
@@ -280,6 +261,11 @@ void MainWindow::applyTheme(const QString& themeId) {
         m_titleBar->setAutoFillBackground(true);
     }
 
+    // 窗口按钮跟随主题重绘
+    for (WindowButton* b : {m_minBtn, m_maxBtn, m_closeBtn}) {
+        if (b) b->update();
+    }
+
     // Windows 原生标题栏跟随主题
     setDarkTitleBar(this, dark);
 }
@@ -334,37 +320,7 @@ void MainWindow::onCloseClicked() {
 
 void MainWindow::updateMaximizeIcon() {
     if (!m_maxBtn) return;
-    const bool max = isMaximized();
-    const QColor c = Theme::textSub(false);
-    m_maxBtn->setIcon(max ? IconPainter::restore(c, 14)
-                          : IconPainter::maximize(c, 14));
-    m_maxBtn->setToolTip(max ? tr("还原") : tr("最大化"));
-}
-
-// 窗口按钮 hover/关闭 hover 背景（自绘，非 QSS）
-bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
-    const bool isWinBtn = (obj == m_minBtn || obj == m_maxBtn || obj == m_closeBtn);
-    if (isWinBtn) {
-        auto* btn = qobject_cast<QPushButton*>(obj);
-        if (!btn) return QMainWindow::eventFilter(obj, event);
-        if (event->type() == QEvent::Enter || event->type() == QEvent::Leave) {
-            const bool hover = (event->type() == QEvent::Enter);
-            const bool dark = ThemeManager::instance().isDark();
-            const bool isClose = (obj == m_closeBtn);
-            QColor bg;
-            if (hover) {
-                bg = isClose ? Theme::danger(dark) : Theme::highlight(dark);
-            } else {
-                bg = Qt::transparent;
-            }
-            QPalette pal = btn->palette();
-            pal.setColor(QPalette::Button, bg);
-            btn->setPalette(pal);
-            btn->setAutoFillBackground(hover);
-            return true;
-        }
-    }
-    return QMainWindow::eventFilter(obj, event);
+    m_maxBtn->setMaximized(isMaximized());
 }
 
 // ===== 无边框窗口拖动 =====

@@ -7,8 +7,19 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
+# Windows 资源（exe 图标 + 版本信息）
+if(WIN32)
+    enable_language(RC)
+    set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/resources")
+endif()
+
 # 查找 Qt6
 find_package(Qt6 REQUIRED COMPONENTS Widgets Network Concurrent)
+
+set(RESOURCES
+    resources/app.qrc
+    resources/gscoop.rc
+)
 
 set(SOURCES
     src/main.cpp
@@ -32,6 +43,7 @@ set(SOURCES
     src/ui/bucket_info_dialog.cpp
     src/ui/doctor_page.cpp
     src/ui/modern_style.cpp
+    src/ui/window_button.cpp
 )
 
 set(HEADERS
@@ -55,11 +67,13 @@ set(HEADERS
     src/ui/bucket_info_dialog.h
     src/ui/doctor_page.h
     src/ui/modern_style.h
+    src/ui/window_button.h
 )
 
 qt_add_executable(gscoop
     ${SOURCES}
     ${HEADERS}
+    ${RESOURCES}
 )
 
 target_include_directories(gscoop PRIVATE

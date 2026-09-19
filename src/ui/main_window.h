@@ -16,6 +16,7 @@ class BucketPage;
 class SettingsPage;
 class AnimatedStackedWidget;
 class ActivityBar;
+class WindowButton;
 class QMouseEvent;
 
 // 主窗口：VSCode 风格（左侧活动栏 + 顶部标题栏 + 内容区）
@@ -38,7 +39,6 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     // 双击标题栏最大化/还原
     void mouseDoubleClickEvent(QMouseEvent* event) override;
-    bool eventFilter(QObject* obj, QEvent* event) override;
 
 private slots:
     void onScoopDetected(bool installed);
@@ -58,9 +58,9 @@ private:
     QList<QPushButton*> m_navButtons;
     ActivityBar* m_activityBar = nullptr;
     QFrame* m_titleBar = nullptr;
-    QPushButton* m_minBtn = nullptr;
-    QPushButton* m_maxBtn = nullptr;
-    QPushButton* m_closeBtn = nullptr;
+    WindowButton* m_minBtn = nullptr;
+    WindowButton* m_maxBtn = nullptr;
+    WindowButton* m_closeBtn = nullptr;
     QSystemTrayIcon* m_tray = nullptr;
     bool m_exiting = false;
     bool m_centered = false;

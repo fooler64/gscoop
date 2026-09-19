@@ -2,6 +2,7 @@
 #include <QApplication>
 #include <QStyleFactory>
 #include <QFont>
+#include <QIcon>
 #include <QSettings>
 
 #include "core/scoop_service.h"
@@ -16,6 +17,9 @@ int main(int argc, char* argv[]) {
     app.setOrganizationName("gscoop");
     app.setApplicationVersion("0.1.0");
     app.setQuitOnLastWindowClosed(true);
+
+    // 应用图标（嵌入资源，任务栏/窗口/对话框统一）
+    app.setWindowIcon(QIcon(QStringLiteral(":/gscoop.ico")));
 
     // 现代化控件样式（QProxyStyle，非 QSS，颜色走 JSON 主题）
     app.setStyle(new ModernStyle());
