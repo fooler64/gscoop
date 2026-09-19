@@ -16,6 +16,8 @@ class BucketPage;
 class SettingsPage;
 class AnimatedStackedWidget;
 class ActivityBar;
+class LogPanel;
+class QTimer;
 class WindowButton;
 class QMouseEvent;
 
@@ -46,11 +48,13 @@ private slots:
     void onMinimizeClicked();
     void onMaximizeClicked();
     void onCloseClicked();
+    void onAutoBucketUpdateTick();
 
 private:
     void setupUi();
     void setupTray();
     void applyTheme(const QString& theme);
+    void configureBucketTimer();
     void updateMaximizeIcon();
 
     ScoopService* m_service;
@@ -61,6 +65,8 @@ private:
     WindowButton* m_minBtn = nullptr;
     WindowButton* m_maxBtn = nullptr;
     WindowButton* m_closeBtn = nullptr;
+    LogPanel* m_logPanel = nullptr;
+    QTimer* m_bucketTimer = nullptr;
     QSystemTrayIcon* m_tray = nullptr;
     bool m_exiting = false;
     bool m_centered = false;

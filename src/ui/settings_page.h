@@ -58,6 +58,10 @@ private slots:
     void onRunDoctor();
     void onCleanupApps();
     void onCleanupCache();
+    void onFixAll();            // 一键修复
+    void onExportConfig();      // 导出配置
+    void onImportConfig();      // 导入配置
+    void onUpdateBucketsNow();  // 立即刷新所有 bucket
 
 private:
     void setupUi();
@@ -78,10 +82,16 @@ private:
     // 自动化
     QCheckBox* m_autoUpdateCheck = nullptr;
     QCheckBox* m_showUpdateBanner = nullptr;
+    QCheckBox* m_autoBucketUpdateCheck = nullptr;
+    QComboBox* m_bucketUpdateInterval = nullptr;
+    QPushButton* m_bucketUpdateNowBtn = nullptr;
     // 管理
     QPushButton* m_runDoctorBtn = nullptr;
     QPushButton* m_cleanupAppsBtn = nullptr;
     QPushButton* m_cleanupCacheBtn = nullptr;
+    QPushButton* m_fixAllBtn = nullptr;
+    QPushButton* m_exportBtn = nullptr;
+    QPushButton* m_importBtn = nullptr;
     QLabel* m_doctorStatusLabel = nullptr;
     QVBoxLayout* m_doctorResultsLayout = nullptr;
     QWidget* m_doctorResultsHost = nullptr;

@@ -21,9 +21,12 @@
 #include <QFutureWatcher>
 #include <QLayoutItem>
 #include <QVariantAnimation>
+#include <QFileDialog>
+#include <QDir>
 
 #include "core/scoop_service.h"
 #include "core/settings_store.h"
+#include "core/i18n.h"
 #include "core/theme_manager.h"
 #include "ui/theme.h"
 #include "ui/icon_painter.h"
@@ -233,6 +236,39 @@ void SettingsPage::buildAutomationTab(QWidget* page) {
             &SettingsStore::instance(), &SettingsStore::setAutoUpdateCheck);
     connect(m_showUpdateBanner, &QCheckBox::toggled,
             &SettingsStore::instance(), &SettingsStore::setShowUpdateBanner);
+
+    // ---- bucket 自动更新 ----
+    auto* bBox = makeGroupBox(tr("Bucket 自动更新"), page);
+    auto* bForm = new QFormLayout(bBox);
+    m_autoBucketUpdateCheck = new QCheckBox(tr("定期自动更新 bucket 索引"), bBox);
+    bForm->addRow(QString(), m_autoBucketUpdateCheck);
+
+    m_bucketUpdateInterval = new QComboBox(bBox);
+    m_bucketUpdateInterval->addItem(tr("每 24 小时"), 24);
+    m_bucketUpdateInterval->addItem(tr("每 7 天"), 168);
+    bForm->addRow(tr("更新间隔:"), m_bucketUpdateInterval);
+
+    m_bucketUpdateNowBtn = new QPushButton(tr("立即更新全部 Bucket"), bBox);
+    m_bucketUpdateNowBtn->setIcon(IconPainter::refresh(Theme::text(false), 15));
+    bForm->addRow(QString(), m_bucketUpdateNowBtn);
+    layout->insertWidget(3, bBox);
+
+    auto* bHint = new QLabel(tr("自动执行 scoop update 刷新 bucket 索引，保持软件信息最新。"), page);
+    bHint->setStyleSheet(QString("color:%1;font-size:11px;").arg(Theme::textSub(false).name()));
+    layout->insertWidget(4, bHint);
+
+    connect(m_autoBucketUpdateCheck, &QCheckBox::toggled, this, [this](bool on) {
+        SettingsStore::instance().setAutoBucketUpdate(
+            on, m_bucketUpdateInterval->currentData().toInt());
+    });
+    connect(m_bucketUpdateInterval, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int) {
+        SettingsStore::instance().setAutoBucketUpdate(
+            m_autoBucketUpdateCheck->isChecked(),
+            m_bucketUpdateInterval->currentData().toInt());
+    });
+    connect(m_bucketUpdateNowBtn, &QPushButton::clicked, this,
+            &SettingsPage::onUpdateBucketsNow);
 }
 
 void SettingsPage::buildManagementTab(QWidget* page) {
@@ -275,9 +311,39 @@ void SettingsPage::buildManagementTab(QWidget* page) {
 
     layout->insertWidget(1, doctorBox);
 
+    // 一键修复按钮（追加到工具行）
+    m_fixAllBtn = new QPushButton(tr("一键修复"), doctorBox);
+    m_fixAllBtn->setIcon(IconPainter::shield(Theme::text(false), 16));
+    m_fixAllBtn->setToolTip(tr("自动修复：安装缺失的 git/7zip、补建 main bucket"));
+    m_fixAllBtn->setProperty("primary", true);
+    toolRow->insertWidget(3, m_fixAllBtn);
+    toolRow->removeItem(toolRow->itemAt(toolRow->count() - 1));  // 移除 stretch
+
     connect(m_runDoctorBtn, &QPushButton::clicked, this, &SettingsPage::onRunDoctor);
     connect(m_cleanupAppsBtn, &QPushButton::clicked, this, &SettingsPage::onCleanupApps);
     connect(m_cleanupCacheBtn, &QPushButton::clicked, this, &SettingsPage::onCleanupCache);
+    connect(m_fixAllBtn, &QPushButton::clicked, this, &SettingsPage::onFixAll);
+
+    // ---- 配置导出 / 导入 ----
+    auto* cfgBox = makeGroupBox(tr("配置备份"), page);
+    auto* cfgForm = new QFormLayout(cfgBox);
+    auto* cfgRow = new QHBoxLayout;
+    m_exportBtn = new QPushButton(tr("导出配置"), cfgBox);
+    m_exportBtn->setToolTip(tr("导出已安装软件列表为 JSON（scoop export）"));
+    m_importBtn = new QPushButton(tr("导入配置"), cfgBox);
+    m_importBtn->setToolTip(tr("从 JSON 文件还原软件列表（scoop import）"));
+    cfgRow->addWidget(m_exportBtn);
+    cfgRow->addWidget(m_importBtn);
+    cfgRow->addStretch();
+    cfgForm->addRow(cfgRow);
+    auto* cfgHint = new QLabel(tr("换机时导出配置，新机器导入即可一键还原全部软件。"), cfgBox);
+    cfgHint->setWordWrap(true);
+    cfgHint->setStyleSheet(QString("color:%1;font-size:11px;").arg(Theme::textSub(false).name()));
+    cfgForm->addRow(cfgHint);
+    layout->insertWidget(2, cfgBox);
+
+    connect(m_exportBtn, &QPushButton::clicked, this, &SettingsPage::onExportConfig);
+    connect(m_importBtn, &QPushButton::clicked, this, &SettingsPage::onImportConfig);
 }
 
 void SettingsPage::buildSecurityTab(QWidget* page) {
@@ -372,7 +438,12 @@ void SettingsPage::buildWindowTab(QWidget* page) {
     });
     connect(m_languageCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this](int idx) {
-        SettingsStore::instance().setLanguage(m_languageCombo->itemData(idx).toString());
+        const QString lang = m_languageCombo->itemData(idx).toString();
+        SettingsStore::instance().setLanguage(lang);
+        I18n::instance().applyLanguage(lang);
+        QMessageBox::information(this, tr("语言"),
+            tr("语言已切换为 %1。\n部分界面需要重启 gScoop 后完全生效。")
+                .arg(m_languageCombo->currentText()));
     });
     connect(m_launchPageCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this](int idx) {
@@ -439,6 +510,65 @@ void SettingsPage::onTabChanged(int index) {
             }
         }
     }
+}
+
+// 一键修复：根据自检结果自动安装缺失依赖 / 补建 bucket
+void SettingsPage::onFixAll() {
+    if (QMessageBox::question(this, tr("一键修复"),
+            tr("将自动执行以下修复：\n"
+               "· 缺少 git → scoop install git\n"
+               "· 缺少 7zip → scoop install 7zip\n"
+               "· 缺少 main bucket → scoop bucket add main\n\n"
+               "是否继续？")) != QMessageBox::Yes) return;
+
+    const QVector<DoctorCheckItem> items = m_service->runDoctor();
+    int fixes = 0;
+    for (const auto& it : items) {
+        if (it.passed) continue;
+        // 仅修复可自动处理项（git / 7zip / main bucket）
+        if (it.title.contains("git", Qt::CaseInsensitive) && !it.title.contains("bucket")) {
+            m_service->installPackage("git"); ++fixes;
+        } else if (it.title.contains("7zip")) {
+            m_service->installPackage("7zip"); ++fixes;
+        } else if (it.title.contains("Main bucket")) {
+            m_service->addBucket("main", QString()); ++fixes;
+        }
+    }
+    if (fixes == 0) {
+        m_doctorStatusLabel->setText(tr("没有可自动修复的问题（其余项需手动处理）"));
+    } else {
+        m_doctorStatusLabel->setText(tr("已提交 %1 项修复，请在底部日志查看进度").arg(fixes));
+    }
+    onRunDoctor();
+}
+
+// 导出配置
+void SettingsPage::onExportConfig() {
+    const QString path = QFileDialog::getSaveFileName(
+        this, tr("导出配置"), QDir::homePath() + "/gscoop-export.json",
+        tr("JSON 文件 (*.json)"));
+    if (path.isEmpty()) return;
+    m_service->exportConfig(path);
+    m_doctorStatusLabel->setText(tr("已导出配置到 %1").arg(path));
+    QMessageBox::information(this, tr("导出成功"), tr("配置已导出到：\n%1").arg(path));
+}
+
+// 导入配置
+void SettingsPage::onImportConfig() {
+    const QString path = QFileDialog::getOpenFileName(
+        this, tr("导入配置"), QDir::homePath(), tr("JSON 文件 (*.json)"));
+    if (path.isEmpty()) return;
+    if (QMessageBox::question(this, tr("导入配置"),
+            tr("将从该文件还原软件列表并开始安装：\n%1\n\n是否继续？").arg(path))
+        != QMessageBox::Yes) return;
+    m_service->importConfig(path);
+    m_doctorStatusLabel->setText(tr("正在导入配置，请在底部日志查看进度"));
+}
+
+// 立即刷新全部 bucket
+void SettingsPage::onUpdateBucketsNow() {
+    m_service->updateAllBuckets();
+    m_doctorStatusLabel->setText(tr("正在刷新全部 bucket…"));
 }
 
 void SettingsPage::onRunDoctor() {
@@ -511,6 +641,11 @@ void SettingsPage::onPageShown() {
     m_useProxy->setChecked(s.useProxy);
     m_proxyEdit->setText(s.proxyUrl);
     m_vtApiKeyEdit->setText(s.virusTotalApiKey);
+    if (m_autoBucketUpdateCheck) {
+        m_autoBucketUpdateCheck->setChecked(s.autoBucketUpdate);
+        const int idx = m_bucketUpdateInterval->findData(s.bucketUpdateHours);
+        if (idx >= 0) m_bucketUpdateInterval->setCurrentIndex(idx);
+    }
     m_scoopStatusLabel->setText(
         m_service->isScoopInstalled()
             ? tr("已检测到 (%1)").arg(m_service->scoopPath())

@@ -7,6 +7,7 @@
 
 #include "core/scoop_service.h"
 #include "core/settings_store.h"
+#include "core/i18n.h"
 #include "ui/main_window.h"
 #include "ui/modern_style.h"
 
@@ -27,6 +28,9 @@ int main(int argc, char* argv[]) {
     // 全局字体（中文友好）
     QFont font("Microsoft YaHei", 9);
     app.setFont(font);
+
+    // 应用已保存的界面语言（zh-CN 为源语言，en-US 加载翻译）
+    I18n::instance().applyLanguage(SettingsStore::instance().settings().language);
 
     // 服务与主窗口
     ScoopService service;

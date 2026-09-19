@@ -9,6 +9,7 @@
 #include <QJsonArray>
 #include <QStandardPaths>
 #include <QtConcurrent>
+#include <QDirIterator>
 #include <QThread>
 #include <QTimer>
 #include <QRegularExpression>
@@ -415,7 +416,154 @@ void ScoopService::removeBucket(const QString& name) {
 }
 
 void ScoopService::cleanupApps() {
-    runScoop({"cleanup"}, ScoopOpType::Cleanup, QString());
+    // cleanup 也走队列：避免与批量操作冲突
+    enqueue({ScoopOpType::Cleanup, {"cleanup"}, QString()});
+}
+
+// ---------------------------------------------------------------------------
+// 批量操作队列
+// ---------------------------------------------------------------------------
+void ScoopService::enqueue(const QueueItem& item) {
+    const bool wasEmpty = m_queue.isEmpty();
+    m_queue.append(item);
+    if (wasEmpty) {
+        m_queueTotal = m_queue.size();
+        m_queueIndex = 0;
+        m_queueFailed = 0;
+    } else {
+        m_queueTotal = m_queueIndex + m_queue.size();
+    }
+    if (wasEmpty) runNextQueued();
+}
+
+void ScoopService::runNextQueued() {
+    if (m_queue.isEmpty()) {
+        const int total = m_queueTotal;
+        const int failed = m_queueFailed;
+        m_queueTotal = 0;
+        m_queueIndex = 0;
+        m_queueFailed = 0;
+        emit queueFinished(total - failed, failed);
+        return;
+    }
+    const QueueItem item = m_queue.takeFirst();
+    emit queueProgress(m_queueIndex, m_queueTotal, item.package);
+    runScoop(item.args, item.op, item.package);
+}
+
+void ScoopService::updatePackages(const QStringList& names) {
+    if (names.isEmpty()) return;
+    for (const QString& n : names) {
+        enqueue({ScoopOpType::Update, {"update", n}, n});
+    }
+}
+
+void ScoopService::uninstallPackages(const QStringList& names) {
+    if (names.isEmpty()) return;
+    for (const QString& n : names) {
+        enqueue({ScoopOpType::Uninstall, {"uninstall", n}, n});
+    }
+}
+
+void ScoopService::holdPackages(const QStringList& names, bool hold) {
+    if (names.isEmpty()) return;
+    for (const QString& n : names) {
+        enqueue({hold ? ScoopOpType::Hold : ScoopOpType::Unhold,
+                 {hold ? "hold" : "unhold", n}, n});
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 导出 / 导入配置
+// ---------------------------------------------------------------------------
+void ScoopService::exportConfig(const QString& filePath) {
+    // 直接写文件：scoop export 输出 JSON 到 stdout
+    if (m_scoopPath.isEmpty()) {
+        emit errorOccurred(tr("未找到 scoop，请先安装 Scoop。"));
+        return;
+    }
+    QProcess proc;
+    QStringList args{"export"};
+    if (m_scoopPath.endsWith(".cmd") || m_scoopPath.endsWith(".bat")) {
+        proc.setProgram("cmd.exe");
+        proc.setArguments({"/d", "/c", m_scoopPath, "export"});
+    } else {
+        proc.setProgram(m_scoopPath);
+        proc.setArguments(args);
+    }
+    proc.setWorkingDirectory(QDir::homePath());
+    proc.start();
+    if (!proc.waitForFinished(30000)) {
+        emit errorOccurred(tr("导出超时"));
+        return;
+    }
+    QFile f(filePath);
+    if (!f.open(QIODevice::WriteOnly)) {
+        emit errorOccurred(tr("无法写入文件：%1").arg(filePath));
+        return;
+    }
+    f.write(proc.readAllStandardOutput());
+    f.close();
+    emit opFinished(ScoopOpType::ExportConfig, filePath, true, QString());
+}
+
+void ScoopService::importConfig(const QString& filePath) {
+    enqueue({ScoopOpType::ImportConfig, {"import", filePath}, filePath});
+}
+
+void ScoopService::updateAllBuckets() {
+    enqueue({ScoopOpType::BucketUpdateAll, {"update"}, tr("全部 bucket")});
+}
+
+void ScoopService::installPackageVersion(const QString& name, const QString& version) {
+    enqueue({ScoopOpType::Install, {"install", name + "@" + version},
+             name + "@" + version});
+}
+
+// ---------------------------------------------------------------------------
+// 包信息增强
+// ---------------------------------------------------------------------------
+// 递归计算目录大小
+static qint64 dirSize(const QString& path) {
+    qint64 total = 0;
+    QDirIterator it(path, QDir::Files | QDir::NoDotAndDotDot | QDir::Hidden,
+                    QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+        it.next();
+        total += it.fileInfo().size();
+    }
+    return total;
+}
+
+qint64 ScoopService::installedSize(const QString& name) const {
+    const QString pkgDir = m_appsDir + "/" + name;
+    if (!QDir(pkgDir).exists()) return -1;
+    return dirSize(pkgDir);
+}
+
+QStringList ScoopService::availableVersions(const QString& name) const {
+    QStringList versions;
+    // 1. 从本地 bucket manifest 读当前版本
+    const QString home = QDir::homePath();
+    QDir bucketsRoot(home + "/scoop/buckets");
+    const QStringList buckets = bucketsRoot.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString& b : buckets) {
+        QFile mf(home + "/scoop/buckets/" + b + "/bucket/" + name + ".json");
+        if (mf.exists() && mf.open(QIODevice::ReadOnly)) {
+            const QJsonObject o = QJsonDocument::fromJson(mf.readAll()).object();
+            const QString v = o.value("version").toString();
+            if (!v.isEmpty() && !versions.contains(v)) versions << v;
+            mf.close();
+        }
+    }
+    // 2. 已安装的本地版本目录
+    QDir pkgDir(m_appsDir + "/" + name);
+    const QStringList localDirs = pkgDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+    for (const QString& d : localDirs) {
+        if (d.compare("current", Qt::CaseInsensitive) == 0) continue;
+        if (!versions.contains(d)) versions << d;
+    }
+    return versions;
 }
 
 // Doctor 环境自检：检查 git/7zip/main bucket/开发者模式/长路径/NTFS 等
@@ -513,7 +661,7 @@ QVector<DoctorCheckItem> ScoopService::runDoctor() {
 }
 
 void ScoopService::cleanupCache() {
-    runScoop({"cache", "rm", "*"}, ScoopOpType::CacheRm, QString());
+    enqueue({ScoopOpType::CacheRm, {"cache", "rm", "*"}, QString()});
 }
 
 void ScoopService::scanVirusTotal(const QString& package) {
@@ -548,7 +696,21 @@ void ScoopService::onProcessFinished(int exitCode) {
     }
     emit opFinished(op, pkg, success, err);
 
-    // 操作完成后刷新数据
+    // 批量队列：失败计数 + 继续下一个
+    if (!m_queue.isEmpty() || m_queueTotal > 0) {
+        if (!success) ++m_queueFailed;
+        ++m_queueIndex;
+        if (!m_queue.isEmpty()) {
+            runNextQueued();
+            return;   // 队列未完，延迟到最后统一刷新
+        }
+        // 队列跑完：汇总
+        scanInstalledPackages();
+        fetchBuckets();
+        return;
+    }
+
+    // 单次操作：刷新数据
     scanInstalledPackages();
     fetchBuckets();
 }

@@ -108,6 +108,11 @@ PackageInfoDialog::PackageInfoDialog(ScoopService* service, const QString& packa
     m_notesLabel = new QLabel("-", container);
     m_notesLabel->setWordWrap(true);
     m_notesLabel->setStyleSheet(QString("color:%1;").arg(Theme::warn(dark).name()));
+    // 安装大小 / 可用版本（增强信息）
+    m_sizeLabel = new QLabel("-", container);
+    m_versionsLabel = new QLabel("-", container);
+    m_versionsLabel->setWordWrap(true);
+    m_versionsLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
 
     form->addRow(tr("版本:"), m_versionLabel);
     form->addRow(tr("Bucket:"), m_sourceLabel);
@@ -117,6 +122,8 @@ PackageInfoDialog::PackageInfoDialog(ScoopService* service, const QString& packa
     form->addRow(tr("许可证:"), m_licenseLabel);
     form->addRow(tr("下载:"), m_urlLabel);
     form->addRow(tr("作者:"), m_authorLabel);
+    form->addRow(tr("大小:"), m_sizeLabel);
+    form->addRow(tr("可用版本:"), m_versionsLabel);
     form->addRow(tr("备注:"), m_notesLabel);
     layout->addLayout(form);
 
@@ -262,6 +269,22 @@ void PackageInfoDialog::fetchInfo() {
         m_descLabel->setText(tr("[已废弃] ") + m_descLabel->text());
         m_descLabel->setStyleSheet(QString("color:%1;").arg(Theme::danger(dark).name()));
     }
+
+    // ---- 安装大小 ----
+    const qint64 bytes = m_service->installedSize(m_name);
+    if (bytes < 0) {
+        m_sizeLabel->setText(tr("未安装"));
+    } else if (bytes < 1024 * 1024) {
+        m_sizeLabel->setText(tr("%1 KB").arg(bytes / 1024.0, 0, 'f', 1));
+    } else if (bytes < qint64(1024) * 1024 * 1024) {
+        m_sizeLabel->setText(tr("%1 MB").arg(bytes / 1024.0 / 1024.0, 0, 'f', 1));
+    } else {
+        m_sizeLabel->setText(tr("%1 GB").arg(bytes / 1024.0 / 1024.0 / 1024.0, 0, 'f', 2));
+    }
+
+    // ---- 可用版本 ----
+    const QStringList vers = m_service->availableVersions(m_name);
+    m_versionsLabel->setText(vers.isEmpty() ? "-" : vers.join("  "));
 }
 
 void PackageInfoDialog::onInstall() {

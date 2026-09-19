@@ -47,6 +47,8 @@ private:
     QLabel* m_urlLabel = nullptr;
     QLabel* m_authorLabel = nullptr;
     QLabel* m_notesLabel = nullptr;
+    QLabel* m_sizeLabel = nullptr;
+    QLabel* m_versionsLabel = nullptr;
     QPushButton* m_installBtn = nullptr;
     QPushButton* m_uninstallBtn = nullptr;
     QPushButton* m_vtBtn = nullptr;

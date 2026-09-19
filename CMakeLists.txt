@@ -27,6 +27,7 @@ set(SOURCES
     src/core/scoop_service.cpp
     src/core/settings_store.cpp
     src/core/theme_manager.cpp
+    src/core/i18n.cpp
     src/ui/main_window.cpp
     src/ui/animated_stack.cpp
     src/ui/activity_bar.cpp
@@ -44,6 +45,7 @@ set(SOURCES
     src/ui/doctor_page.cpp
     src/ui/modern_style.cpp
     src/ui/window_button.cpp
+    src/ui/log_panel.cpp
 )
 
 set(HEADERS
@@ -51,6 +53,7 @@ set(HEADERS
     src/core/scoop_service.h
     src/core/settings_store.h
     src/core/theme_manager.h
+    src/core/i18n.h
     src/ui/main_window.h
     src/ui/animated_stack.h
     src/ui/activity_bar.h
@@ -68,6 +71,7 @@ set(HEADERS
     src/ui/doctor_page.h
     src/ui/modern_style.h
     src/ui/window_button.h
+    src/ui/log_panel.h
 )
 
 qt_add_executable(gscoop
@@ -96,6 +100,9 @@ add_custom_command(TARGET gscoop POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/themes
         $<TARGET_FILE_DIR:gscoop>/themes
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/i18n
+        $<TARGET_FILE_DIR:gscoop>/i18n
 )
 
 # Windows 图标资源（如果存在）

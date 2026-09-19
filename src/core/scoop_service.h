@@ -22,7 +22,10 @@ enum class ScoopOpType {
     Cleanup,
     CacheRm,
     UpdateAll,
-    VirusTotal
+    VirusTotal,
+    ExportConfig,
+    ImportConfig,
+    BucketUpdateAll
 };
 
 // 操作进度信息（对应原版 OperationModal）
@@ -41,6 +44,13 @@ struct ScoopOpProgress {
 class ScoopService : public QObject {
     Q_OBJECT
 public:
+    // 批量队列项：{操作类型, 命令行参数, 包名}
+    struct QueueItem {
+        ScoopOpType op;
+        QStringList args;
+        QString package;
+    };
+
     explicit ScoopService(QObject* parent = nullptr);
 
     // 环境探测
@@ -75,6 +85,32 @@ public:
     // VirusTotal 查毒（调用 scoop virustotal <package>）
     void scanVirusTotal(const QString& package);
 
+    // ---- 批量操作 ----
+    void updatePackages(const QStringList& names);      // 逐个更新（自动排队）
+    void uninstallPackages(const QStringList& names);
+    void holdPackages(const QStringList& names, bool hold);
+
+    // ---- 导出 / 导入配置 ----
+    void exportConfig(const QString& filePath);         // scoop export > file
+    void importConfig(const QString& filePath);         // scoop import file
+
+    // ---- bucket 批量刷新（scoop update） ----
+    void updateAllBuckets();
+
+    // ---- 安装指定版本 ----
+    void installPackageVersion(const QString& name, const QString& version);
+
+    // ---- 包信息增强 ----
+    // 已安装包占用空间（字节；未安装返回 -1）
+    qint64 installedSize(const QString& name) const;
+    // 可用版本列表（读 bucket manifest 的 version + 历史版本目录）
+    QStringList availableVersions(const QString& name) const;
+
+    // 队列状态（批量操作进度）
+    int queueTotal() const { return m_queueTotal; }
+    int queueIndex() const { return m_queueIndex; }
+    bool isQueueRunning() const { return !m_queue.isEmpty(); }
+
     // 当前操作状态
     bool isBusy() const { return m_currentOp != ScoopOpType::None; }
     ScoopOpType currentOp() const { return m_currentOp; }
@@ -88,6 +124,8 @@ signals:
     void opProgress(const ScoopOpProgress& progress);
     void opFinished(ScoopOpType type, const QString& package, bool success, const QString& error);
     void errorOccurred(const QString& message);
+    void queueProgress(int index, int total, const QString& currentPackage);
+    void queueFinished(int succeeded, int failed);
 
 private slots:
     void onProcessOutput();
@@ -106,7 +144,16 @@ private:
     QFutureWatcher<QVector<ScoopPackage>>* m_searchWatcher = nullptr;
     QFutureWatcher<QVector<BucketInfo>>* m_bucketWatcher = nullptr;
 
+    // 批量操作队列
+    QVector<QueueItem> m_queue;
+    int m_queueTotal = 0;
+    int m_queueIndex = 0;
+    int m_queueFailed = 0;
+
     // 辅助
+    void enqueue(const QueueItem& item);
+    void runNextQueued();
+
     QString findScoopExecutable();
     QString resolveAppsDir();
     QString bucketsRootDir() const;

@@ -19,9 +19,12 @@
 #include <QContextMenuEvent>
 #include <QMouseEvent>
 #include <QFontMetrics>
+#include <QComboBox>
+#include <QSignalBlocker>
 
 #include "core/scoop_service.h"
 #include "core/theme_manager.h"
+#include "core/settings_store.h"
 #include "ui/package_info_dialog.h"
 #include "ui/theme.h"
 #include "ui/icon_painter.h"
@@ -47,8 +50,21 @@ void SearchResultCard::setInstalled(bool installed) {
     update();
 }
 
+void SearchResultCard::setFavorite(bool fav) {
+    if (m_favorite == fav) return;
+    m_favorite = fav;
+    update();
+}
+
 void SearchResultCard::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
+        // 点击星标 → 切换收藏；点其他区域 → 打开详情
+        if (m_starRect.adjusted(-4, -4, 4, 4).contains(event->pos())) {
+            m_favorite = !m_favorite;
+            update();
+            emit favoriteToggled(m_pkg.name);
+            return;
+        }
         emit clicked(m_pkg.name);
     }
     QFrame::mousePressEvent(event);
@@ -91,6 +107,14 @@ void SearchResultCard::paintEvent(QPaintEvent* event) {
     const qreal w = width();
     const qreal h = height();
     const int rightMargin = 90;   // 给右侧下载箭头留空间
+
+    // 收藏星标（右上角，安装徽标左侧）
+    const int starSize = 18;
+    m_starRect = QRect(int(w) - starSize - (m_pkg.is_installed ? 74 : 14), 8, starSize, starSize);
+    {
+        const QColor starColor = m_favorite ? Theme::gold(dark) : Theme::border(dark);
+        p.drawPixmap(m_starRect, IconPainter::star(starColor, starSize).pixmap(starSize, starSize));
+    }
 
     // 状态徽标（右上角）
     if (m_pkg.is_installed) {
@@ -217,8 +241,24 @@ void SearchPage::setupUi() {
     m_searchEdit->setStyleSheet(QString("background:transparent;"));
     searchWrapLayout->addWidget(m_searchEdit, 1);
 
+    // 搜索历史下拉
+    m_historyCombo = new QComboBox(this);
+    m_historyCombo->setMinimumWidth(140);
+    m_historyCombo->setToolTip(tr("搜索历史"));
+    m_historyCombo->addItem(tr("历史记录"), QString());
+    for (const QString& h : SettingsStore::instance().settings().searchHistory) {
+        m_historyCombo->addItem(h, h);
+    }
+    searchRow->addWidget(m_historyCombo);
+
     searchRow->addWidget(searchWrap, 1);
     layout->addLayout(searchRow);
+
+    connect(m_historyCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, [this](int idx) {
+        const QString term = m_historyCombo->itemData(idx).toString();
+        if (!term.isEmpty()) onHistorySelected(term);
+    });
 
     // ---- 结果 tabs（扁平无边框）----
     m_tabs = new QTabWidget(this);
@@ -274,7 +314,32 @@ void SearchPage::doSearch() {
     if (q.isEmpty()) return;
     m_currentQuery = q;
     m_statusLabel->setText(tr("正在搜索 \"%1\"...").arg(q));
+    SettingsStore::instance().addSearchHistory(q);   // 记录搜索历史
+    refreshHistoryCombo();
     m_service->searchPackages(q);
+}
+
+// 从历史中选择
+void SearchPage::onHistorySelected(const QString& term) {
+    m_searchEdit->setText(term);
+    doSearch();
+}
+
+// 刷新历史下拉
+void SearchPage::refreshHistoryCombo() {
+    if (!m_historyCombo) return;
+    QSignalBlocker b(m_historyCombo);
+    m_historyCombo->clear();
+    m_historyCombo->addItem(tr("历史记录"), QString());
+    for (const QString& h : SettingsStore::instance().settings().searchHistory) {
+        m_historyCombo->addItem(h, h);
+    }
+    m_historyCombo->setCurrentIndex(0);
+}
+
+void SearchPage::clearHistory() {
+    SettingsStore::instance().clearSearchHistory();
+    refreshHistoryCombo();
 }
 
 void SearchPage::onResultsReady(QVector<ScoopPackage> packages, bool isCold) {
@@ -314,6 +379,10 @@ void SearchPage::populateCards(QVBoxLayout* layout, const QVector<ScoopPackage>&
         auto* card = new SearchResultCard(pkg, this);
         connect(card, &SearchResultCard::clicked, this, [this](const QString& name) {
             showPackageInfo(name);
+        });
+        card->setFavorite(SettingsStore::instance().isFavorite(pkg.name));
+        connect(card, &SearchResultCard::favoriteToggled, this, [](const QString& name) {
+            SettingsStore::instance().toggleFavorite(name);
         });
         connect(card, &SearchResultCard::infoRequested, this, &SearchPage::showPackageInfo);
         connect(card, &SearchResultCard::installRequested, this, &SearchPage::onInstallClicked);

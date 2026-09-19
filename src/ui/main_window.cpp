@@ -18,6 +18,10 @@
 #include <QShowEvent>
 #include <QMouseEvent>
 #include <QEvent>
+#include <QTimer>
+#include <QPixmap>
+#include <QPainter>
+#include <QRegularExpression>
 
 #include "core/scoop_service.h"
 #include "core/settings_store.h"
@@ -27,6 +31,7 @@
 #include "ui/theme.h"
 #include "ui/icon_painter.h"
 #include "ui/window_button.h"
+#include "ui/log_panel.h"
 #include "ui/search_page.h"
 #include "ui/installed_page.h"
 #include "ui/bucket_page.h"
@@ -49,6 +54,37 @@
 #define DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 19
 #endif
 #endif
+
+// 操作类型 → 标题
+static QString opTitle(ScoopOpType type) {
+    switch (type) {
+    case ScoopOpType::Install: return QObject::tr("安装");
+    case ScoopOpType::Uninstall: return QObject::tr("卸载");
+    case ScoopOpType::Update: return QObject::tr("更新");
+    case ScoopOpType::UpdateAll: return QObject::tr("更新全部");
+    case ScoopOpType::Hold: return QObject::tr("锁定");
+    case ScoopOpType::Unhold: return QObject::tr("解除锁定");
+    case ScoopOpType::BucketAdd: return QObject::tr("添加 Bucket");
+    case ScoopOpType::BucketRemove: return QObject::tr("删除 Bucket");
+    case ScoopOpType::Cleanup: return QObject::tr("清理旧版本");
+    case ScoopOpType::CacheRm: return QObject::tr("清理缓存");
+    case ScoopOpType::VirusTotal: return QObject::tr("VirusTotal 查毒");
+    default: return QObject::tr("操作");
+    }
+}
+
+// 从 scoop 输出里解析进度百分比（如 "Downloading ... 45%"）
+static int parseProgress(const QString& output) {
+    static const QRegularExpression re("(\\d{1,3})\\s*%");
+    int last = -1;
+    auto it = re.globalMatch(output);
+    while (it.hasNext()) {
+        const auto m = it.next();
+        const int v = m.captured(1).toInt();
+        if (v >= 0 && v <= 100) last = v;
+    }
+    return last;
+}
 
 // 设置 Windows 原生标题栏为深色（VSCode 风格）
 static void setDarkTitleBar(QWidget* w, bool dark) {
@@ -164,9 +200,30 @@ void MainWindow::setupUi() {
     bodyLayout->addWidget(m_stack, 1);
     rootLayout->addLayout(bodyLayout, 1);
 
+    // ---- 底部操作日志面板（跨整宽）----
+    m_logPanel = new LogPanel(this);
+    rootLayout->addWidget(m_logPanel);
+
     auto* central = new QWidget(this);
     central->setLayout(rootLayout);
     setCentralWidget(central);
+
+    // 连接 scoop 操作 → 日志面板
+    connect(m_service, &ScoopService::opStarted, this,
+            [this](ScoopOpType type, const QString& package) {
+        m_logPanel->beginOperation(opTitle(type), package);
+    });
+    connect(m_service, &ScoopService::opProgress, this,
+            [this](const ScoopOpProgress& p) {
+        if (!p.output.isEmpty()) m_logPanel->appendRaw(p.output);
+        const int pct = parseProgress(p.output);
+        if (pct >= 0) m_logPanel->setProgress(pct);
+        if (!p.stage.isEmpty()) m_logPanel->setStage(p.stage);
+    });
+    connect(m_service, &ScoopService::opFinished, this,
+            [this](ScoopOpType, const QString&, bool success, const QString& error) {
+        m_logPanel->finishOperation(success, error);
+    });
 
     // 启动页
     const QString launch = SettingsStore::instance().settings().defaultLaunchPage;
@@ -219,6 +276,22 @@ void MainWindow::navigateTo(int pageIndex, bool animate) {
     m_currentPage = pageIndex;
 }
 
+// 依据设置配置 bucket 自动更新定时器
+void MainWindow::configureBucketTimer() {
+    if (!m_bucketTimer) return;
+    const AppSettings& s = SettingsStore::instance().settings();
+    if (s.autoBucketUpdate && s.bucketUpdateHours > 0) {
+        m_bucketTimer->start(s.bucketUpdateHours * 3600 * 1000);
+    } else {
+        m_bucketTimer->stop();
+    }
+}
+
+void MainWindow::onAutoBucketUpdateTick() {
+    // 静默刷新全部 bucket（不弹窗，进度显示在底部日志）
+    m_service->updateAllBuckets();
+}
+
 void MainWindow::onScoopDetected(bool installed) {
     if (!installed) {
         statusBar()->showMessage(tr("未检测到 Scoop，请先安装 Scoop"), 10000);
@@ -230,6 +303,7 @@ void MainWindow::onScoopDetected(bool installed) {
 void MainWindow::onSettingsChanged() {
     const AppSettings& s = SettingsStore::instance().settings();
     applyTheme(s.theme);
+    configureBucketTimer();
 }
 
 void MainWindow::applyTheme(const QString& themeId) {
@@ -267,6 +341,9 @@ void MainWindow::applyTheme(const QString& themeId) {
     for (WindowButton* b : {m_minBtn, m_maxBtn, m_closeBtn}) {
         if (b) b->update();
     }
+
+    // 日志面板跟随主题
+    if (m_logPanel) m_logPanel->refreshTheme();
 
     // Windows 原生标题栏跟随主题
     setDarkTitleBar(this, dark);

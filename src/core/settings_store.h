@@ -22,6 +22,12 @@ struct AppSettings {
     // 窗口
     bool rememberWindowSize = true;
     bool startMinimized = false;
+    // bucket 自动更新
+    bool autoBucketUpdate = false;      // 是否启用
+    int bucketUpdateHours = 24;         // 间隔小时（24 / 168 = 7天）
+    // 搜索历史 / 收藏
+    QStringList searchHistory;
+    QStringList favorites;
 };
 
 class SettingsStore : public QObject {
@@ -42,6 +48,11 @@ public:
     void setVirusTotalApiKey(const QString& key);
     void setRememberWindowSize(bool on);
     void setStartMinimized(bool on);
+    void setAutoBucketUpdate(bool on, int hours);
+    void addSearchHistory(const QString& term);
+    void clearSearchHistory();
+    void toggleFavorite(const QString& name);
+    bool isFavorite(const QString& name) const;
 
 signals:
     void settingsChanged(const AppSettings& settings);

@@ -33,6 +33,10 @@ void SettingsStore::load() {
     m_settings.virusTotalApiKey = m_qsettings.value("security/vtApiKey", "").toString();
     m_settings.rememberWindowSize = m_qsettings.value("window/rememberSize", true).toBool();
     m_settings.startMinimized = m_qsettings.value("window/startMinimized", false).toBool();
+    m_settings.autoBucketUpdate = m_qsettings.value("bucket/autoUpdate", false).toBool();
+    m_settings.bucketUpdateHours = m_qsettings.value("bucket/updateHours", 24).toInt();
+    m_settings.searchHistory = m_qsettings.value("search/history").toStringList();
+    m_settings.favorites = m_qsettings.value("search/favorites").toStringList();
 }
 
 void SettingsStore::save() {
@@ -48,6 +52,10 @@ void SettingsStore::save() {
     m_qsettings.setValue("security/vtApiKey", m_settings.virusTotalApiKey);
     m_qsettings.setValue("window/rememberSize", m_settings.rememberWindowSize);
     m_qsettings.setValue("window/startMinimized", m_settings.startMinimized);
+    m_qsettings.setValue("bucket/autoUpdate", m_settings.autoBucketUpdate);
+    m_qsettings.setValue("bucket/updateHours", m_settings.bucketUpdateHours);
+    m_qsettings.setValue("search/history", m_settings.searchHistory);
+    m_qsettings.setValue("search/favorites", m_settings.favorites);
     m_qsettings.sync();
 }
 
@@ -119,4 +127,38 @@ void SettingsStore::setStartMinimized(bool on) {
     m_settings.startMinimized = on;
     save();
     emit settingsChanged(m_settings);
+}
+
+void SettingsStore::setAutoBucketUpdate(bool on, int hours) {
+    m_settings.autoBucketUpdate = on;
+    m_settings.bucketUpdateHours = hours;
+    save();
+    emit settingsChanged(m_settings);
+}
+
+void SettingsStore::addSearchHistory(const QString& term) {
+    const QString t = term.trimmed();
+    if (t.isEmpty()) return;
+    m_settings.searchHistory.removeAll(t);
+    m_settings.searchHistory.prepend(t);
+    while (m_settings.searchHistory.size() > 20) m_settings.searchHistory.removeLast();
+    save();
+    emit settingsChanged(m_settings);
+}
+
+void SettingsStore::clearSearchHistory() {
+    m_settings.searchHistory.clear();
+    save();
+    emit settingsChanged(m_settings);
+}
+
+void SettingsStore::toggleFavorite(const QString& name) {
+    if (m_settings.favorites.contains(name)) m_settings.favorites.removeAll(name);
+    else m_settings.favorites.prepend(name);
+    save();
+    emit settingsChanged(m_settings);
+}
+
+bool SettingsStore::isFavorite(const QString& name) const {
+    return m_settings.favorites.contains(name);
 }

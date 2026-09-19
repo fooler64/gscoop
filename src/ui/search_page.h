@@ -8,6 +8,7 @@
 
 class QLineEdit;
 class QPushButton;
+class QComboBox;
 class QTabWidget;
 class QLabel;
 class QComboBox;
@@ -31,11 +32,14 @@ public:
     QString packageName() const { return m_pkg.name; }
     void setInstalled(bool installed);
 
+    void setFavorite(bool fav);      // 收藏星标状态
+
 signals:
     void clicked(const QString& name);
     void installRequested(const QString& name);
     void uninstallRequested(const QString& name);
     void infoRequested(const QString& name);
+    void favoriteToggled(const QString& name);
 
 protected:
     void mousePressEvent(QMouseEvent* event) override;
@@ -47,6 +51,8 @@ protected:
 private:
     ScoopPackage m_pkg;
     bool m_hover = false;
+    bool m_favorite = false;
+    QRect m_starRect;
 };
 
 // 搜索页：卡片式搜索结果 + rscoop 风格搜索栏
@@ -58,6 +64,8 @@ public:
 
 private slots:
     void doSearch();
+    void onHistorySelected(const QString& term);
+    void clearHistory();
     void onResultsReady(QVector<ScoopPackage> packages, bool isCold);
     void onInstallClicked(const QString& name);
     void onUninstallClicked(const QString& name);
@@ -69,9 +77,11 @@ private:
     QWidget* makeResultsPage(QVBoxLayout** outLayout);
     void populateCards(QVBoxLayout* layout, const QVector<ScoopPackage>& packages);
     void refreshInstalledState();
+    void refreshHistoryCombo();
 
     ScoopService* m_service;
     QLineEdit* m_searchEdit = nullptr;
+    QComboBox* m_historyCombo = nullptr;
     QTabWidget* m_tabs = nullptr;
     QVBoxLayout* m_packageLayout = nullptr;
     QVBoxLayout* m_binaryLayout = nullptr;
