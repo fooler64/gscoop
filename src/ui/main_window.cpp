@@ -76,7 +76,9 @@ MainWindow::MainWindow(ScoopService* service, QWidget* parent)
     // 初始主题
     applyTheme(SettingsStore::instance().settings().theme);
     m_service->probeEnvironment();
+
 }
+
 
 void MainWindow::setupUi() {
     setWindowTitle(tr("gScoop"));

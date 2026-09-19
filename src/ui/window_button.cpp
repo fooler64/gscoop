@@ -31,23 +31,23 @@ void WindowButton::setMaximized(bool maximized) {
 }
 
 void WindowButton::animateHover(bool hovered) {
-    if (m_hoverAnim) {
-        m_hoverAnim->stop();
-        m_hoverAnim->deleteLater();
-        m_hoverAnim = nullptr;
+    // 复用一个动画对象（parent=this，随控件销毁）。
+    // 不能用 finished→deleteLater：删除后成员指针会变成野指针，
+    // 下次 enter/leave 访问 m_hoverAnim->stop() 即崩溃（闪退根因）。
+    if (!m_hoverAnim) {
+        m_hoverAnim = new QVariantAnimation(this);
+        m_hoverAnim->setDuration(120);
+        m_hoverAnim->setEasingCurve(QEasingCurve::OutCubic);
+        connect(m_hoverAnim, &QVariantAnimation::valueChanged, this,
+                [this](const QVariant& v) {
+            m_hoverProgress = v.toDouble();
+            update();
+        });
     }
-    auto* anim = new QVariantAnimation(this);
-    m_hoverAnim = anim;
-    anim->setDuration(120);
-    anim->setStartValue(m_hoverProgress);
-    anim->setEndValue(hovered ? 1.0 : 0.0);
-    anim->setEasingCurve(QEasingCurve::OutCubic);
-    connect(anim, &QVariantAnimation::valueChanged, this, [this](const QVariant& v) {
-        m_hoverProgress = v.toDouble();
-        update();
-    });
-    connect(anim, &QVariantAnimation::finished, anim, &QObject::deleteLater);
-    anim->start();
+    m_hoverAnim->stop();
+    m_hoverAnim->setStartValue(m_hoverProgress);
+    m_hoverAnim->setEndValue(hovered ? 1.0 : 0.0);
+    m_hoverAnim->start();
 }
 
 void WindowButton::enterEvent(QEnterEvent* event) {

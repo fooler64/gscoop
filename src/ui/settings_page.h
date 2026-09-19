@@ -6,6 +6,8 @@
 #include "models/scoop_models.h"
 #include "core/scoop_service.h"
 
+class QVariantAnimation;
+
 class QComboBox;
 class QCheckBox;
 class QLineEdit;
@@ -39,6 +41,7 @@ private:
     QString m_text;
     QString m_icon;
     double m_activeProgress = 0.0;   // 0=未选中 1=选中（动画插值）
+    QVariantAnimation* m_activeAnim = nullptr;
 };
 
 // 设置页（现代化：左侧标签导航 + 右侧内容区）

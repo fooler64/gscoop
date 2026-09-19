@@ -38,18 +38,21 @@ SettingsTabButton::SettingsTabButton(const QString& text, const QString& icon, Q
 }
 
 void SettingsTabButton::setActive(bool active) {
-    // 平滑过渡到目标状态
-    auto* anim = new QVariantAnimation(this);
-    anim->setDuration(160);
-    anim->setStartValue(m_activeProgress);
-    anim->setEndValue(active ? 1.0 : 0.0);
-    anim->setEasingCurve(QEasingCurve::OutCubic);
-    connect(anim, &QVariantAnimation::valueChanged, this, [this](const QVariant& v) {
-        m_activeProgress = v.toDouble();
-        update();
-    });
-    connect(anim, &QVariantAnimation::finished, anim, &QObject::deleteLater);
-    anim->start();
+    // 复用一个动画对象（parent=this），避免频繁创建/销毁
+    if (!m_activeAnim) {
+        m_activeAnim = new QVariantAnimation(this);
+        m_activeAnim->setDuration(160);
+        m_activeAnim->setEasingCurve(QEasingCurve::OutCubic);
+        connect(m_activeAnim, &QVariantAnimation::valueChanged, this,
+                [this](const QVariant& v) {
+            m_activeProgress = v.toDouble();
+            update();
+        });
+    }
+    m_activeAnim->stop();
+    m_activeAnim->setStartValue(m_activeProgress);
+    m_activeAnim->setEndValue(active ? 1.0 : 0.0);
+    m_activeAnim->start();
 }
 
 void SettingsTabButton::mousePressEvent(QMouseEvent* event) {
