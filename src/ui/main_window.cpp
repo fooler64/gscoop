@@ -18,6 +18,9 @@
 #include <QShowEvent>
 #include <QMouseEvent>
 #include <QEvent>
+#include <QTimer>
+#include <QPainter>
+#include <QPixmap>
 
 #include "core/scoop_service.h"
 #include "core/settings_store.h"

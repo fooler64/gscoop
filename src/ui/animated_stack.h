@@ -3,10 +3,11 @@
 
 #include <QStackedWidget>
 #include <QVariantAnimation>
+#include <QPixmap>
 
-// 高性能页面切换动画（纯 QPainter 手绘，无 QGraphicsOpacityEffect）：
-// 新页面从右侧轻微滑入 + 透明度渐变，旧页面直接切换隐藏
-// 轻量：只对当前帧重绘一次，适合卡片密集页面
+// 高性能页面切换动画（单快照滑入，零重叠）：
+// 只绘制新页面快照从右滑入 + 容器底色兜底，旧页直接隐藏，
+// 因此不存在两页叠加/重影。快照用 QPixmap（每帧仅位图搬运），流畅。
 class AnimatedStackedWidget : public QStackedWidget {
     Q_OBJECT
 public:
@@ -20,16 +21,21 @@ public:
     void setDuration(int ms) { m_duration = ms; }
     int duration() const { return m_duration; }
 
-    // 动画进度（0~1，paintEvent 用）
+    // 动画进度（0~1）
     double progress() const { return m_progress; }
 
 protected:
     void paintEvent(QPaintEvent* event) override;
 
 private:
-    int m_duration = 180;
+    void stopAnimation(bool commit);
+
+    int m_duration = 200;
     double m_progress = 1.0;      // 1=完成
     bool m_animRunning = false;
+    int m_targetIndex = -1;
     QWidget* m_oldWidget = nullptr;
     QWidget* m_newWidget = nullptr;
+    QPixmap m_newSnapshot;
+    QVariantAnimation* m_anim = nullptr;
 };
